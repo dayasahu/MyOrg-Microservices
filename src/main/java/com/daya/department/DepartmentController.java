@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/department")
+@RequestMapping("/api")
 public class DepartmentController {
 
     @Autowired
@@ -21,7 +21,7 @@ public class DepartmentController {
         this.departmentService = departmentService;
     }
 
-    @GetMapping
+    @GetMapping("/list")
     public List<Department> list() {
         return departmentService.getDepartments();
     }
