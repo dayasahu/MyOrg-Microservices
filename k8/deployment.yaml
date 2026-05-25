@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: dayasahu6077/authservice:v25April
+          image: dayasahu6077/auth-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 9000
           env:
@@ -25,6 +26,13 @@ spec:
                 secretKeyRef:
                   name: jwt-secret
                   key: JWT_SECRET
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "300m"
+              memory: "512Mi"
           readinessProbe:
             httpGet:
               path: /actuator/health
