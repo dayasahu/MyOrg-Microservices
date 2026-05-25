@@ -13,10 +13,14 @@ spec:
     metadata:
       labels:
         app: apigateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8888"
     spec:
       containers:
         - name: apigateway
-          image: dayasahu6077/gateway-server:26April
+          image: dayasahu6077/ms-api-gateway:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8888
@@ -32,15 +36,30 @@ spec:
                 secretKeyRef:
                   name: jwt-secret
                   key: JWT_SECRET
+            - name: OTEL_TRACES_ENDPOINT
+              value: http://host.docker.internal:4318/v1/traces
+            - name: OTEL_METRICS_ENDPOINT
+              value: http://host.docker.internal:4318/v1/metrics
+            - name: OTEL_LOGS_ENDPOINT
+              value: http://host.docker.internal:4318/v1/logs
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8888
             initialDelaySeconds: 30
             periodSeconds: 20
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: 8888
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
