@@ -26,7 +26,7 @@ spec:
             - containerPort: 8888
           env:
             - name: SPRING_CONFIG_IMPORT
-              value: "optional:configserver:http://configserver:8071"
+              value: "configserver:http://configserver:8071"
             - name: SPRING_PROFILES_ACTIVE
               value: "dev"
             - name: SPRING_APPLICATION_NAME
