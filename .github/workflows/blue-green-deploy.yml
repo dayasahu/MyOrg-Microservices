@@ -1,0 +1,201 @@
+name: Blue-Green Deploy — Department
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  IMAGE:        dayasahu6077/department
+  SERVICE:      department
+  NAMESPACE:    microservices
+  PREVIEW_SVC:  department-preview
+  PREVIEW_PORT: "18081"
+
+jobs:
+
+  build:
+    name: "1 · Build & Unit Test"
+    runs-on: self-hosted
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        shell: bash
+        run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            maven:3.9.9-eclipse-temurin-21 \
+            mvn -B test
+
+      - name: Build Docker image
+        shell: bash
+        run: docker build -t $IMAGE:${{ steps.tag.outputs.tag }} .
+
+  integration-test:
+    name: "2 · Integration Tests"
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run integration tests
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            maven:3.9.9-eclipse-temurin-21 \
+            mvn -B verify -DskipUnitTests
+
+  push-image:
+    name: "3 · Push Image → Docker Hub"
+    needs: integration-test
+    runs-on: self-hosted
+    steps:
+      - name: Login to Docker Hub
+        shell: bash
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Push image
+        shell: bash
+        run: docker push $IMAGE:${{ needs.build.outputs.image_tag }}
+
+  deploy-green:
+    name: "4 · Deploy Green"
+    needs: push-image
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply Rollout manifests
+        shell: bash
+        run: |
+          kubectl apply -f k8/analysis-template.yaml -n $NAMESPACE
+          kubectl apply -f k8/service-preview.yaml   -n $NAMESPACE
+          kubectl delete deployment $SERVICE -n $NAMESPACE --ignore-not-found=true
+          kubectl apply -f k8/rollout.yaml -n $NAMESPACE
+      - name: Set green image
+        shell: bash
+        run: |
+          kubectl argo rollouts set image $SERVICE \
+            $SERVICE=$IMAGE:${{ needs.build.outputs.image_tag }} \
+            -n $NAMESPACE
+      - name: Wait for green pods ready
+        shell: bash
+        run: |
+          sleep 30
+          kubectl argo rollouts get rollout $SERVICE -n $NAMESPACE
+
+  smoke-test:
+    name: "5 · Smoke Tests"
+    needs: deploy-green
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Port-forward preview service
+        shell: bash
+        run: |
+          kubectl port-forward svc/$PREVIEW_SVC $PREVIEW_PORT:8080 -n $NAMESPACE &
+          echo $! > /tmp/pf_smoke_pid
+          sleep 5
+      - name: Run smoke tests
+        shell: bash
+        run: bash tests/smoke/smoke-test.sh http://localhost:$PREVIEW_PORT
+      - name: Stop port-forward
+        if: always()
+        shell: bash
+        run: kill $(cat /tmp/pf_smoke_pid) 2>/dev/null || true
+
+  performance-test:
+    name: "6 · Performance Tests (k6)"
+    needs: smoke-test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Port-forward preview service
+        shell: bash
+        run: |
+          kubectl port-forward svc/$PREVIEW_SVC $PREVIEW_PORT:8080 -n $NAMESPACE &
+          echo $! > /tmp/pf_perf_pid
+          sleep 5
+      - name: Run k6 load test
+        shell: bash
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/tests/performance:/tests" \
+            -e BASE_URL=http://localhost:$PREVIEW_PORT \
+            grafana/k6 run /tests/load-test.js
+      - name: Stop port-forward
+        if: always()
+        shell: bash
+        run: kill $(cat /tmp/pf_perf_pid) 2>/dev/null || true
+
+  e2e-test:
+    name: "7 · E2E Tests (Newman)"
+    needs: performance-test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Port-forward preview service
+        shell: bash
+        run: |
+          kubectl port-forward svc/$PREVIEW_SVC $PREVIEW_PORT:8080 -n $NAMESPACE &
+          echo $! > /tmp/pf_e2e_pid
+          sleep 5
+      - name: Run Newman E2E tests
+        shell: bash
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/tests/e2e:/etc/newman" \
+            postman/newman run /etc/newman/collection.json \
+              --env-var "baseUrl=http://localhost:$PREVIEW_PORT" \
+              --reporters cli
+      - name: Stop port-forward
+        if: always()
+        shell: bash
+        run: kill $(cat /tmp/pf_e2e_pid) 2>/dev/null || true
+
+  approval:
+    name: "8 · Manual Approval ✋"
+    needs: e2e-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "✅ Approved. Promoting green → active."
+
+  promote:
+    name: "9 · Promote Green → Active 🚀"
+    needs: approval
+    runs-on: self-hosted
+    steps:
+      - name: Promote rollout
+        shell: bash
+        run: kubectl argo rollouts promote $SERVICE -n $NAMESPACE
+      - name: Wait for promotion
+        shell: bash
+        run: kubectl argo rollouts status $SERVICE -n $NAMESPACE --timeout=60s
+      - name: Summary
+        shell: bash
+        run: |
+          echo "🚀 Promotion complete — green is now live!"
+          kubectl argo rollouts get rollout $SERVICE -n $NAMESPACE
+
+  rollback:
+    name: "⛔ Rollback to Blue"
+    needs: [smoke-test, performance-test, e2e-test]
+    if: failure()
+    runs-on: self-hosted
+    steps:
+      - name: Abort and rollback
+        shell: bash
+        run: |
+          echo "❌ Tests failed — rolling back to blue..."
+          kubectl argo rollouts abort $SERVICE -n $NAMESPACE || true
+          kubectl argo rollouts undo  $SERVICE -n $NAMESPACE || true
+          echo "✅ Blue is still live."
