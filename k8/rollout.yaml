@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: department
+        app.kubernetes.io/part-of: microservices-training
+        environment: dev
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: "/actuator/prometheus"
