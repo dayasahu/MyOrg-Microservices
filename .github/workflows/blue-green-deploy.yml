@@ -24,14 +24,14 @@ jobs:
 
       - name: Set image tag
         id: tag
-        shell: pwsh
+        shell: powershell
         run: |
           $tag = $env:GITHUB_SHA.Substring(0, 8)
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Image tag: $tag"
 
       - name: Run unit tests
-        shell: pwsh
+        shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
@@ -41,7 +41,7 @@ jobs:
             mvn -B test
 
       - name: Build Docker image
-        shell: pwsh
+        shell: powershell
         run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" .
 
   integration-test:
@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run integration tests
-        shell: pwsh
+        shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
@@ -66,10 +66,10 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Login to Docker Hub
-        shell: pwsh
+        shell: powershell
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
       - name: Push image
-        shell: pwsh
+        shell: powershell
         run: docker push "$env:IMAGE`:${{ needs.build.outputs.image_tag }}"
 
   deploy-green:
@@ -79,20 +79,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply Rollout manifests
-        shell: pwsh
+        shell: powershell
         run: |
           kubectl apply -f k8/analysis-template.yaml -n $env:NAMESPACE
           kubectl apply -f k8/service-preview.yaml   -n $env:NAMESPACE
           kubectl delete deployment $env:SERVICE -n $env:NAMESPACE --ignore-not-found=true
           kubectl apply -f k8/rollout.yaml -n $env:NAMESPACE
       - name: Set green image
-        shell: pwsh
+        shell: powershell
         run: |
           kubectl argo rollouts set image $env:SERVICE `
             "$env:SERVICE=$env:IMAGE`:${{ needs.build.outputs.image_tag }}" `
             -n $env:NAMESPACE
       - name: Wait for green pods ready
-        shell: pwsh
+        shell: powershell
         run: |
           Start-Sleep 30
           kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
@@ -104,14 +104,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start port-forward
-        shell: pwsh
+        shell: powershell
         run: |
           $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
           $job.Id | Out-File "$env:TEMP\pf_smoke_dept.txt"
           Start-Sleep 5
 
       - name: Run smoke tests
-        shell: pwsh
+        shell: powershell
         run: |
           $base = "http://localhost:$env:PREVIEW_PORT"
           $pass = 0; $fail = 0
@@ -141,7 +141,7 @@ jobs:
 
       - name: Stop port-forward
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_smoke_dept.txt" -ErrorAction SilentlyContinue
           if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
@@ -153,13 +153,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start port-forward
-        shell: pwsh
+        shell: powershell
         run: |
           $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
           $job.Id | Out-File "$env:TEMP\pf_perf_dept.txt"
           Start-Sleep 5
       - name: Run k6 load test
-        shell: pwsh
+        shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
@@ -168,7 +168,7 @@ jobs:
             grafana/k6 run /tests/load-test.js
       - name: Stop port-forward
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_perf_dept.txt" -ErrorAction SilentlyContinue
           if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
@@ -180,13 +180,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start port-forward
-        shell: pwsh
+        shell: powershell
         run: |
           $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
           $job.Id | Out-File "$env:TEMP\pf_e2e_dept.txt"
           Start-Sleep 5
       - name: Run Newman E2E tests
-        shell: pwsh
+        shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
@@ -196,7 +196,7 @@ jobs:
               --reporters cli
       - name: Stop port-forward
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_e2e_dept.txt" -ErrorAction SilentlyContinue
           if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
@@ -215,13 +215,13 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Promote rollout
-        shell: pwsh
+        shell: powershell
         run: kubectl argo rollouts promote $env:SERVICE -n $env:NAMESPACE
       - name: Wait for promotion
-        shell: pwsh
+        shell: powershell
         run: kubectl argo rollouts status $env:SERVICE -n $env:NAMESPACE --timeout=60s
       - name: Summary
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "🚀 Promotion complete — green is now live!"
           kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
@@ -233,7 +233,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Abort and rollback
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "❌ Tests failed — rolling back to blue..."
           kubectl argo rollouts abort $env:SERVICE -n $env:NAMESPACE
