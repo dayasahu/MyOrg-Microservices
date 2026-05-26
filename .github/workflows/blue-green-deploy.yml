@@ -108,9 +108,12 @@ jobs:
       - name: Start port-forward
         shell: powershell
         run: |
-          $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
-          $job.Id | Out-File "$env:TEMP\pf_smoke_dept.txt"
-          Start-Sleep 5
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
+            -WindowStyle Hidden -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_smoke_dept.txt"
+          Start-Sleep 8
+          Write-Host "Port-forward started (pid $($proc.Id))"
 
       - name: Run smoke tests
         shell: powershell
@@ -154,7 +157,7 @@ jobs:
         shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_smoke_dept.txt" -ErrorAction SilentlyContinue
-          if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
 
   performance-test:
     name: "6 · Performance Tests (k6)"
@@ -165,9 +168,12 @@ jobs:
       - name: Start port-forward
         shell: powershell
         run: |
-          $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
-          $job.Id | Out-File "$env:TEMP\pf_perf_dept.txt"
-          Start-Sleep 5
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
+            -WindowStyle Hidden -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_perf_dept.txt"
+          Start-Sleep 8
+          Write-Host "Port-forward started (pid $($proc.Id))"
       - name: Run k6 load test
         shell: powershell
         run: |
@@ -181,7 +187,7 @@ jobs:
         shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_perf_dept.txt" -ErrorAction SilentlyContinue
-          if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
 
   e2e-test:
     name: "7 · E2E Tests (Newman)"
@@ -192,9 +198,12 @@ jobs:
       - name: Start port-forward
         shell: powershell
         run: |
-          $job = Start-Job { kubectl port-forward svc/department-preview 18081:8080 -n microservices }
-          $job.Id | Out-File "$env:TEMP\pf_e2e_dept.txt"
-          Start-Sleep 5
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
+            -WindowStyle Hidden -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_e2e_dept.txt"
+          Start-Sleep 8
+          Write-Host "Port-forward started (pid $($proc.Id))"
       - name: Run Newman E2E tests
         shell: powershell
         run: |
@@ -209,7 +218,7 @@ jobs:
         shell: powershell
         run: |
           $id = Get-Content "$env:TEMP\pf_e2e_dept.txt" -ErrorAction SilentlyContinue
-          if ($id) { Stop-Job -Id $id -ErrorAction SilentlyContinue; Remove-Job -Id $id -Force -ErrorAction SilentlyContinue }
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
 
   approval:
     name: "8 · Manual Approval ✋"
