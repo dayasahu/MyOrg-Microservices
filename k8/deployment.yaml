@@ -36,11 +36,11 @@ spec:
             - name: SPRING_APPLICATION_NAME
               value: "department"
             - name: OTEL_TRACES_ENDPOINT
-              value: http://host.docker.internal:4318/v1/traces
+              value: http://otel-collector.observability.svc.cluster.local:4318/v1/traces
             - name: OTEL_METRICS_ENDPOINT
-              value: http://host.docker.internal:4318/v1/metrics
+              value: http://otel-collector.observability.svc.cluster.local:4318/v1/metrics
             - name: OTEL_LOGS_ENDPOINT
-              value: http://host.docker.internal:4318/v1/logs
+              value: http://otel-collector.observability.svc.cluster.local:4318/v1/logs
           resources:
             requests:
               cpu: "100m"
