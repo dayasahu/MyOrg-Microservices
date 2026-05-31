@@ -1,8 +1,12 @@
 name: Blue-Green Deploy — Department
 
+# Monorepo-aware: only runs when the department service (or this workflow) changes.
 on:
   push:
     branches: [master]
+    paths:
+      - 'department/**'
+      - '.github/workflows/department-blue-green.yml'
   workflow_dispatch:
 
 env:
@@ -11,6 +15,7 @@ env:
   NAMESPACE:    microservices
   PREVIEW_SVC:  department-preview
   PREVIEW_PORT: "18081"
+  SVC_DIR:      department
 
 jobs:
 
@@ -21,28 +26,22 @@ jobs:
       image_tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set image tag
+      - name: Set image tag (short git SHA)
         id: tag
         shell: powershell
         run: |
           $tag = $env:GITHUB_SHA.Substring(0, 8)
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Image tag: $tag"
-
       - name: Run unit tests
         shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
-          docker run --rm `
-            -v "${workspace}:/workspace" `
-            -w /workspace `
-            maven:3.9.9-eclipse-temurin-21 `
-            mvn -B test
-
+          docker run --rm -v "${workspace}:/workspace" -w /workspace/$env:SVC_DIR `
+            maven:3.9.9-eclipse-temurin-21 mvn -B test
       - name: Build Docker image
         shell: powershell
-        run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" .
+        run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" $env:SVC_DIR
 
   integration-test:
     name: "2 · Integration Tests"
@@ -54,11 +53,8 @@ jobs:
         shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
-          docker run --rm `
-            -v "${workspace}:/workspace" `
-            -w /workspace `
-            maven:3.9.9-eclipse-temurin-21 `
-            mvn -B verify -DskipUnitTests
+          docker run --rm -v "${workspace}:/workspace" -w /workspace/$env:SVC_DIR `
+            maven:3.9.9-eclipse-temurin-21 mvn -B verify -DskipUnitTests
 
   push-image:
     name: "3 · Push Image → Docker Hub"
@@ -83,21 +79,20 @@ jobs:
       - name: Apply Rollout manifests
         shell: powershell
         run: |
-          kubectl apply -f k8/analysis-template.yaml -n $env:NAMESPACE
-          kubectl apply -f k8/service-preview.yaml   -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/analysis-template.yaml -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/service-preview.yaml   -n $env:NAMESPACE
           kubectl delete deployment $env:SERVICE -n $env:NAMESPACE --ignore-not-found=true
-          kubectl apply -f k8/rollout.yaml -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/rollout.yaml -n $env:NAMESPACE
       - name: Set green image
         shell: powershell
         run: |
           $tag = "${{ needs.build.outputs.image_tag }}"
-          kubectl argo rollouts set image $env:SERVICE `
-            "$env:SERVICE=$env:IMAGE`:$tag" `
-            -n $env:NAMESPACE
+          kubectl argo rollouts set image $env:SERVICE "$env:SERVICE=$env:IMAGE`:$tag" -n $env:NAMESPACE
       - name: Wait for green pods ready
         shell: powershell
         run: |
           Start-Sleep 30
+          kubectl -n $env:NAMESPACE get pods -l app=$env:SERVICE
           kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
 
   smoke-test:
@@ -109,49 +104,32 @@ jobs:
         shell: powershell
         run: |
           $proc = Start-Process -FilePath "kubectl" `
-            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
-            -WindowStyle Hidden -PassThru
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
+            -PassThru
           $proc.Id | Out-File "$env:TEMP\pf_smoke_dept.txt"
-          Start-Sleep 8
-          Write-Host "Port-forward started (pid $($proc.Id))"
-
+          $ready = $false
+          for ($i = 1; $i -le 30; $i++) {
+            Start-Sleep 1
+            try { $t = New-Object System.Net.Sockets.TcpClient; $t.Connect("127.0.0.1", [int]$env:PREVIEW_PORT); $t.Close(); $ready = $true; break } catch {}
+          }
+          if (-not $ready) { Write-Host "Port not ready"; exit 1 }
       - name: Run smoke tests
         shell: powershell
         run: |
           $base = "http://localhost:$env:PREVIEW_PORT"
           $pass = 0; $fail = 0
-
           function Check($name, $expected, $actual) {
-            if ($actual -eq $expected) {
-              Write-Host "  [PASS] $name"
-              $script:pass++
-            } else {
-              Write-Host "  [FAIL] $name - expected '$expected' got '$actual'"
-              $script:fail++
-            }
+            if ($actual -eq $expected) { Write-Host "  [PASS] $name"; $script:pass++ }
+            else { Write-Host "  [FAIL] $name - expected '$expected' got '$actual'"; $script:fail++ }
           }
-
-          Write-Host ""
-          Write-Host "Smoke tests -> $base"
-          Write-Host "-----------------------------------"
-
           Write-Host "1. Health / readiness"
-          try { $r = Invoke-RestMethod "$base/actuator/health/readiness"; Check "status=UP" "UP" $r.status }
-          catch { Check "status=UP" "UP" "UNREACHABLE" }
-
+          try { $r = Invoke-RestMethod "$base/actuator/health/readiness"; Check "status=UP" "UP" $r.status } catch { Check "status=UP" "UP" "UNREACHABLE" }
           Write-Host "2. GET /api/list"
-          try { $r = Invoke-WebRequest "$base/api/list" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" }
-          catch { Check "HTTP 200" "200" "FAILED" }
-
+          try { $r = Invoke-WebRequest "$base/api/list" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" } catch { Check "HTTP 200" "200" "FAILED" }
           Write-Host "3. GET /api/envmsg"
-          try { $r = Invoke-WebRequest "$base/api/envmsg" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" }
-          catch { Check "HTTP 200" "200" "FAILED" }
-
-          Write-Host "-----------------------------------"
+          try { $r = Invoke-WebRequest "$base/api/envmsg" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" } catch { Check "HTTP 200" "200" "FAILED" }
           Write-Host "Results: $pass passed, $fail failed"
-          if ($fail -gt 0) { Write-Host "[FAILED] Smoke tests FAILED"; exit 1 }
-          Write-Host "[PASSED] All smoke tests PASSED"
-
+          if ($fail -gt 0) { exit 1 }
       - name: Stop port-forward
         if: always()
         shell: powershell
@@ -169,19 +147,16 @@ jobs:
         shell: powershell
         run: |
           $proc = Start-Process -FilePath "kubectl" `
-            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
             -WindowStyle Hidden -PassThru
           $proc.Id | Out-File "$env:TEMP\pf_perf_dept.txt"
           Start-Sleep 8
-          Write-Host "Port-forward started (pid $($proc.Id))"
       - name: Run k6 load test
         shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
-          docker run --rm `
-            -v "${workspace}/tests/performance:/tests" `
-            -e BASE_URL=http://host.docker.internal:$env:PREVIEW_PORT `
-            grafana/k6 run /tests/load-test.js
+          docker run --rm -v "${workspace}/$env:SVC_DIR/tests/performance:/tests" `
+            -e BASE_URL=http://host.docker.internal:$env:PREVIEW_PORT grafana/k6 run /tests/load-test.js
       - name: Stop port-forward
         if: always()
         shell: powershell
@@ -199,20 +174,17 @@ jobs:
         shell: powershell
         run: |
           $proc = Start-Process -FilePath "kubectl" `
-            -ArgumentList "port-forward","svc/department-preview","18081:8080","-n","microservices" `
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
             -WindowStyle Hidden -PassThru
           $proc.Id | Out-File "$env:TEMP\pf_e2e_dept.txt"
           Start-Sleep 8
-          Write-Host "Port-forward started (pid $($proc.Id))"
       - name: Run Newman E2E tests
         shell: powershell
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
-          docker run --rm `
-            -v "${workspace}/tests/e2e:/etc/newman" `
+          docker run --rm -v "${workspace}/$env:SVC_DIR/tests/e2e:/etc/newman" `
             postman/newman run /etc/newman/collection.json `
-              --env-var "baseUrl=http://host.docker.internal:$env:PREVIEW_PORT" `
-              --reporters cli
+              --env-var "baseUrl=http://host.docker.internal:$env:PREVIEW_PORT" --reporters cli
       - name: Stop port-forward
         if: always()
         shell: powershell
@@ -239,11 +211,6 @@ jobs:
       - name: Wait for promotion
         shell: powershell
         run: kubectl argo rollouts status $env:SERVICE -n $env:NAMESPACE --timeout=60s
-      - name: Summary
-        shell: powershell
-        run: |
-          Write-Host "Promotion complete - green is now live!"
-          kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
 
   rollback:
     name: "⛔ Rollback to Blue"
@@ -254,7 +221,6 @@ jobs:
       - name: Abort and rollback
         shell: powershell
         run: |
-          Write-Host "Tests failed - rolling back to blue..."
           kubectl argo rollouts abort $env:SERVICE -n $env:NAMESPACE
           kubectl argo rollouts undo  $env:SERVICE -n $env:NAMESPACE
-          Write-Host "Blue is still live."
+          Write-Host "Blue is still live. No impact to production."

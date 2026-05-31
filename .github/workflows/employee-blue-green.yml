@@ -1,8 +1,12 @@
 name: Blue-Green Deploy — Employee
 
+# Monorepo-aware: only runs when the employee service (or this workflow) changes.
 on:
   push:
     branches: [master]
+    paths:
+      - 'employee/**'
+      - '.github/workflows/employee-blue-green.yml'
   workflow_dispatch:
 
 env:
@@ -11,6 +15,7 @@ env:
   NAMESPACE:    microservices
   PREVIEW_SVC:  employee-preview
   PREVIEW_PORT: "18080"
+  SVC_DIR:      employee          # service subfolder within the monorepo
 
 jobs:
 
@@ -39,13 +44,13 @@ jobs:
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
             -v "${workspace}:/workspace" `
-            -w /workspace `
+            -w /workspace/$env:SVC_DIR `
             maven:3.9.9-eclipse-temurin-21 `
             mvn -B test
 
       - name: Build Docker image
         shell: powershell
-        run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" .
+        run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" $env:SVC_DIR
 
   # ══════════════════════════════════════════════════════════════════
   # 2. INTEGRATION TESTS
@@ -63,7 +68,7 @@ jobs:
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
             -v "${workspace}:/workspace" `
-            -w /workspace `
+            -w /workspace/$env:SVC_DIR `
             maven:3.9.9-eclipse-temurin-21 `
             mvn -B verify -DskipUnitTests
 
@@ -98,10 +103,10 @@ jobs:
       - name: Apply Rollout manifests
         shell: powershell
         run: |
-          kubectl apply -f k8/analysis-template.yaml -n $env:NAMESPACE
-          kubectl apply -f k8/service-preview.yaml   -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/analysis-template.yaml -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/service-preview.yaml   -n $env:NAMESPACE
           kubectl delete deployment $env:SERVICE -n $env:NAMESPACE --ignore-not-found=true
-          kubectl apply -f k8/rollout.yaml -n $env:NAMESPACE
+          kubectl apply -f $env:SVC_DIR/k8/rollout.yaml -n $env:NAMESPACE
 
       - name: Set green image
         shell: powershell
@@ -228,7 +233,7 @@ jobs:
         shell: powershell
         run: |
           $proc = Start-Process -FilePath "kubectl" `
-            -ArgumentList "port-forward","svc/employee-preview","18080:8080","-n","microservices" `
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
             -WindowStyle Hidden -PassThru
           $proc.Id | Out-File "$env:TEMP\pf_perf.txt"
           Start-Sleep 8
@@ -239,7 +244,7 @@ jobs:
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
-            -v "${workspace}/tests/performance:/tests" `
+            -v "${workspace}/$env:SVC_DIR/tests/performance:/tests" `
             -e BASE_URL=http://host.docker.internal:$env:PREVIEW_PORT `
             grafana/k6 run /tests/load-test.js
 
@@ -264,7 +269,7 @@ jobs:
         shell: powershell
         run: |
           $proc = Start-Process -FilePath "kubectl" `
-            -ArgumentList "port-forward","svc/employee-preview","18080:8080","-n","microservices" `
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
             -WindowStyle Hidden -PassThru
           $proc.Id | Out-File "$env:TEMP\pf_e2e.txt"
           Start-Sleep 8
@@ -275,7 +280,7 @@ jobs:
         run: |
           $workspace = "${{ github.workspace }}".Replace('\', '/')
           docker run --rm `
-            -v "${workspace}/tests/e2e:/etc/newman" `
+            -v "${workspace}/$env:SVC_DIR/tests/e2e:/etc/newman" `
             postman/newman run /etc/newman/collection.json `
               --env-var "baseUrl=http://host.docker.internal:$env:PREVIEW_PORT" `
               --reporters cli
