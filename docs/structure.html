@@ -75,11 +75,10 @@ make up          <span class="c"># build + deploy observability + services + ing
 ├── src/main/resources/
 │   └── logback-spring.xml           JSON stdout logging (traceId/spanId)
 ├── <span class="k">k8/</span>
-│   ├── rollout.yaml                 Argo Rollout (blue-green)   ← used
+│   ├── rollout.yaml                 Argo Rollout (blue-green)
 │   ├── service.yaml                 active (blue) Service
 │   ├── service-preview.yaml         preview (green) Service
-│   ├── analysis-template.yaml       smoke-test for pre-promotion
-│   └── deployment.yaml              (legacy — not applied; rollout is used)
+│   └── analysis-template.yaml       smoke-test for pre-promotion
 ├── <span class="k">tests/</span>
 │   ├── performance/load-test.js     k6 load test
 │   └── e2e/collection.json          Newman/Postman collection
