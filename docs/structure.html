@@ -22,47 +22,30 @@
         you clone the repo.</p>
     </div>
 
-    <h2 id="clone">Clone the Repositories</h2>
-    <p>The services live in separate GitHub repositories under
-       <a href="https://github.com/dayasahu" target="_blank" rel="noopener">github.com/dayasahu</a>.
-       Clone them side-by-side into a single parent folder so the root <code>Makefile</code> and
-       <code>kustomization.yaml</code> can find each service by its folder name.</p>
-<pre><code><span class="c"># create a parent folder and clone everything into it</span>
-mkdir MyOrg-Project &amp;&amp; cd MyOrg-Project
+    <h2 id="clone">Clone the Repository</h2>
+    <p>Everything lives in a single monorepo —
+       <a href="https://github.com/dayasahu/MyOrg-Microservices" target="_blank" rel="noopener">github.com/dayasahu/MyOrg-Microservices</a>.
+       One clone gives you all five services, the Kubernetes manifests, the Kustomize config, the
+       observability stack, the tooling, and this documentation site.</p>
+<pre><code>git clone https://github.com/dayasahu/MyOrg-Microservices.git
+cd MyOrg-Microservices
 
-git clone https://github.com/dayasahu/employee.git
-git clone https://github.com/dayasahu/department.git
-git clone https://github.com/dayasahu/auth-service.git
-git clone https://github.com/dayasahu/ms-api-gateway.git
-git clone https://github.com/dayasahu/configserver.git
-git clone https://github.com/dayasahu/Observability.git</code></pre>
+<span class="c"># bring the whole platform up (after prerequisites — see Setup Guide)</span>
+make bootstrap   <span class="c"># one-time: NGINX Ingress, Argo Rollouts, K8s Dashboard</span>
+make up          <span class="c"># build + deploy observability + services + ingress</span></code></pre>
 
-    <table>
-      <thead><tr><th>Repository</th><th>Clone URL</th></tr></thead>
-      <tbody>
-        <tr><td><strong>employee</strong></td><td><code>https://github.com/dayasahu/employee.git</code></td></tr>
-        <tr><td><strong>department</strong></td><td><code>https://github.com/dayasahu/department.git</code></td></tr>
-        <tr><td><strong>auth-service</strong></td><td><code>https://github.com/dayasahu/auth-service.git</code></td></tr>
-        <tr><td><strong>ms-api-gateway</strong></td><td><code>https://github.com/dayasahu/ms-api-gateway.git</code></td></tr>
-        <tr><td><strong>configserver</strong></td><td><code>https://github.com/dayasahu/configserver.git</code></td></tr>
-        <tr><td><strong>Observability</strong></td><td><code>https://github.com/dayasahu/Observability.git</code></td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout info">
-      <strong>Polyrepo today.</strong> Each service is its own Git repository. The root orchestration files
-      (<code>Makefile</code>, <code>kustomization.yaml</code>, <code>config-map-k8/</code>,
-      <code>scripts/</code>, <code>docs/</code>) sit in the parent folder alongside the cloned services.
-      Keep the folder names exactly as above — the Makefile and Kustomize reference them by name.
-    </div>
     <div class="callout tip">
-      <strong>Tip — clone in one go (PowerShell):</strong>
-<pre style="margin:8px 0 0"><code>$repos = "employee","department","auth-service","ms-api-gateway","configserver","Observability"
-$repos | ForEach-Object { git clone "https://github.com/dayasahu/$_.git" }</code></pre>
+      <strong>Monorepo.</strong> All services and orchestration files live together, so the root
+      <code>Makefile</code> and <code>kustomization.yaml</code> resolve every path out of the box —
+      no folder juggling, one command to run the lot.
+    </div>
+    <div class="callout info">
+      <strong>History preserved.</strong> The repo was assembled with <code>git subtree</code>, so each
+      service keeps its original commit history under its subfolder.
     </div>
 
     <h2 id="tree">Top-Level Layout</h2>
-<pre><code>MyOrg-Project/
+<pre><code>MyOrg-Microservices/
 ├── <span class="k">employee/</span>            Business service (blue-green via Argo Rollouts)
 ├── <span class="k">department/</span>          Business service (blue-green via Argo Rollouts)
 ├── <span class="k">auth-service/</span>        Issues JWT tokens
