@@ -5,13 +5,12 @@ target/
 *.class
 .mvn/wrapper/maven-wrapper.jar
 
-# IDE / agents
+# IDE
 .idea/
 *.iml
 *.iws
 *.ipr
 .vscode/
-.claude/
 
 # Python (future POCs)
 venv/
