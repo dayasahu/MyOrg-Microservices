@@ -126,10 +126,10 @@ deploy:
 
     <h2 id="other-scripts">Other Helper Files</h2>
     <div class="grid grid-2">
-      <div class="card"><h4><code>bootstrap.ps1</code> (root)</h4><p>Legacy Docker-Compose helper for running the observability stack <em>outside</em> Kubernetes (<code>-Down</code>, <code>-Nuke</code> flags). The K8s path via <code>make obs-up</code> is now preferred.</p></div>
-      <div class="card"><h4><code>scripts/health-check.ps1</code></h4><p>Invoked by <code>make health</code> — verifies pods and key endpoints in the namespace.</p></div>
-      <div class="card"><h4><code>generate-secrets.sh</code></h4><p>Generates the JWT secret material used by the <code>jwt-secret</code> Kubernetes Secret.</p></div>
+      <div class="card"><h4><code>scripts/bootstrap.ps1</code></h4><p>One-time cluster setup — installs NGINX Ingress, Argo Rollouts, and the K8s Dashboard. Invoked by <code>make bootstrap</code>.</p></div>
+      <div class="card"><h4><code>scripts/health-check.ps1</code></h4><p>Invoked by <code>make health</code> — verifies pod readiness and that key services have endpoints.</p></div>
       <div class="card"><h4><code>Dockerfile</code> (per service)</h4><p>Multi-stage build: Maven builds the jar, then a slim <code>eclipse-temurin:21-jre</code> runtime — no JDK needed on the host.</p></div>
+      <div class="card"><h4>JWT secret</h4><p>Generated with <code>openssl rand -base64 48</code> and stored in the <code>jwt-secret</code> Secret — see <a href="gateway.html#secret">API Gateway → JWT Secret</a>.</p></div>
     </div>
 
     <h2 id="daily">Typical Daily Loop</h2>
