@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD &amp; Argo — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Operations</div>
+      <h1>CI/CD &amp; Argo</h1>
+      <p class="lead">The GitHub Actions pipeline that builds, tests, and blue-green deploys each service —
+        and where Argo Rollouts fits versus Argo CD.</p>
+    </div>
+
+    <h2 id="pipeline">The GitHub Actions Pipeline</h2>
+    <p>Each deployable service (employee, department) has a <code>blue-green-deploy.yml</code> workflow
+       that runs on a <strong>self-hosted runner</strong> on push to <code>master</code>. It is a chain
+       of dependent jobs with a manual approval gate before promotion.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5b6678"/></marker>
+        <style>.l{font-size:11px;fill:#fff;font-weight:600}.s{font-size:9px;fill:#5b6678}.t{font-size:11px;fill:#1f2733;font-weight:600}</style></defs>
+
+        <g>
+          <rect x="20"  y="40" width="92" height="44" rx="8" fill="#4f6bff"/><text x="66"  y="60" text-anchor="middle" class="l">1 Build</text><text x="66" y="74" text-anchor="middle" class="l" style="font-size:9px">+ unit test</text>
+          <rect x="132" y="40" width="92" height="44" rx="8" fill="#4f6bff"/><text x="178" y="60" text-anchor="middle" class="l">2 Integ.</text><text x="178" y="74" text-anchor="middle" class="l" style="font-size:9px">tests</text>
+          <rect x="244" y="40" width="92" height="44" rx="8" fill="#4f6bff"/><text x="290" y="60" text-anchor="middle" class="l">3 Push</text><text x="290" y="74" text-anchor="middle" class="l" style="font-size:9px">image</text>
+          <rect x="356" y="40" width="92" height="44" rx="8" fill="#1ea672"/><text x="402" y="60" text-anchor="middle" class="l">4 Deploy</text><text x="402" y="74" text-anchor="middle" class="l" style="font-size:9px">green</text>
+          <rect x="468" y="40" width="92" height="44" rx="8" fill="#e8a32d"/><text x="514" y="60" text-anchor="middle" class="l">5 Smoke</text>
+          <rect x="580" y="40" width="92" height="44" rx="8" fill="#e8a32d"/><text x="626" y="60" text-anchor="middle" class="l">6 Perf</text><text x="626" y="74" text-anchor="middle" class="l" style="font-size:9px">k6</text>
+          <rect x="692" y="40" width="92" height="44" rx="8" fill="#e8a32d"/><text x="738" y="60" text-anchor="middle" class="l">7 E2E</text><text x="738" y="74" text-anchor="middle" class="l" style="font-size:9px">Newman</text>
+        </g>
+        <g>
+          <rect x="356" y="150" width="120" height="44" rx="8" fill="#8b5cf6"/><text x="416" y="170" text-anchor="middle" class="l">8 Approval ✋</text><text x="416" y="184" text-anchor="middle" class="l" style="font-size:9px">environment: production</text>
+          <rect x="520" y="150" width="120" height="44" rx="8" fill="#1ea672"/><text x="580" y="170" text-anchor="middle" class="l">9 Promote 🚀</text><text x="580" y="184" text-anchor="middle" class="l" style="font-size:9px">argo rollouts promote</text>
+          <rect x="684" y="150" width="120" height="44" rx="8" fill="#e0584f"/><text x="744" y="170" text-anchor="middle" class="l">⛔ Rollback</text><text x="744" y="184" text-anchor="middle" class="l" style="font-size:9px">if: failure()</text>
+        </g>
+
+        <!-- top chain arrows -->
+        <line x1="112" y1="62" x2="130" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="224" y1="62" x2="242" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="336" y1="62" x2="354" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="448" y1="62" x2="466" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="560" y1="62" x2="578" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="672" y1="62" x2="690" y2="62" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <!-- down to approval -->
+        <line x1="738" y1="84" x2="540" y2="148" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <line x1="476" y1="172" x2="518" y2="172" stroke="#5b6678" stroke-width="1.6" marker-end="url(#a)"/>
+        <!-- failure to rollback -->
+        <line x1="626" y1="84" x2="720" y2="148" stroke="#e0584f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#a)"/>
+        <text x="250" y="120" class="s">jobs 1-3 on self-hosted runner · 5-7 test the preview service</text>
+        <text x="360" y="230" class="s">approval gate pauses the pipeline until a human approves in the GitHub UI</text>
+      </svg>
+      <div class="caption">Figure 6 — Nine-stage blue-green pipeline. Any test failure (5–7) triggers automatic rollback to blue.</div>
+    </div>
+
+    <h3>Stage breakdown</h3>
+    <table>
+      <thead><tr><th>#</th><th>Job</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Build &amp; Unit Test</td><td>Computes image tag from git SHA, runs <code>mvn test</code>, builds the Docker image.</td></tr>
+        <tr><td>2</td><td>Integration Tests</td><td><code>mvn verify -DskipUnitTests</code> in a Maven container.</td></tr>
+        <tr><td>3</td><td>Push Image</td><td>Logs in to Docker Hub and pushes <code>image:&lt;sha&gt;</code>.</td></tr>
+        <tr><td>4</td><td>Deploy Green</td><td>Applies analysis template, preview service &amp; rollout; sets the green image.</td></tr>
+        <tr><td>5</td><td>Smoke Tests</td><td>Port-forwards the preview service and hits health + key endpoints.</td></tr>
+        <tr><td>6</td><td>Performance (k6)</td><td>Runs <code>tests/performance/load-test.js</code> against the preview.</td></tr>
+        <tr><td>7</td><td>E2E (Newman)</td><td>Runs the Postman collection <code>tests/e2e/collection.json</code>.</td></tr>
+        <tr><td>8</td><td>Manual Approval</td><td>GitHub <code>environment: production</code> gate — a human clicks Approve.</td></tr>
+        <tr><td>9</td><td>Promote</td><td><code>kubectl argo rollouts promote</code> flips green → active.</td></tr>
+        <tr><td>⛔</td><td>Rollback</td><td><code>if: failure()</code> → <code>abort</code> + <code>undo</code>; blue stays live.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="test-strategies">Test Strategies in the Pipeline</h2>
+    <p>The pipeline runs <strong>five layers of testing</strong> before a single user sees the new version.
+       Each layer catches a different class of problem, and they run in increasing order of cost and
+       realism — the classic testing pyramid applied to a blue-green pipeline.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <style>.l{font-size:13px;fill:#fff;font-weight:700}.s{font-size:10.5px;fill:#fff;opacity:.9}.r{font-size:10.5px;fill:#5b6678}</style>
+        <!-- pyramid layers -->
+        <polygon points="330,20 430,20 470,80 290,80"  fill="#8b5cf6"/>
+        <text x="380" y="50" text-anchor="middle" class="l">E2E</text>
+        <text x="380" y="66" text-anchor="middle" class="s">Newman</text>
+
+        <polygon points="290,84 470,84 510,144 250,144" fill="#e8a32d"/>
+        <text x="380" y="114" text-anchor="middle" class="l">Performance</text>
+        <text x="380" y="130" text-anchor="middle" class="s">k6 load test</text>
+
+        <polygon points="250,148 510,148 550,208 210,208" fill="#e0584f"/>
+        <text x="380" y="178" text-anchor="middle" class="l">Smoke</text>
+        <text x="380" y="194" text-anchor="middle" class="s">health + key endpoints on preview</text>
+
+        <polygon points="210,212 550,212 590,272 170,272" fill="#2f6df6"/>
+        <text x="380" y="242" text-anchor="middle" class="l">Integration</text>
+        <text x="380" y="258" text-anchor="middle" class="s">mvn verify — services wired together</text>
+
+        <polygon points="170,276 590,276 630,336 130,336" fill="#1ea672"/>
+        <text x="380" y="306" text-anchor="middle" class="l">Unit</text>
+        <text x="380" y="322" text-anchor="middle" class="s">mvn test — fast, isolated logic</text>
+
+        <!-- side labels -->
+        <text x="650" y="52"  class="r">fewer · slower · more real</text>
+        <text x="650" y="312" class="r">many · faster · cheaper</text>
+        <line x1="648" y1="70" x2="648" y2="300" stroke="#cfd6e6" stroke-width="1.5"/>
+      </svg>
+      <div class="caption">Figure 7 — The five test layers, cheapest &amp; fastest at the base, most realistic at the top.</div>
+    </div>
+
+    <table>
+      <thead><tr><th>Layer</th><th>Stage</th><th>Tool</th><th>Runs against</th><th>What it catches</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill green">Unit</span></td><td>1 · Build</td><td><code>mvn test</code></td><td>Individual classes</td><td>Business-logic bugs in isolation; fastest feedback.</td></tr>
+        <tr><td><span class="pill blue">Integration</span></td><td>2 · Integration</td><td><code>mvn verify -DskipUnitTests</code></td><td>Wired-together Spring context</td><td>Beans, config, and component interactions failing together.</td></tr>
+        <tr><td><span class="pill amber">Smoke</span></td><td>5 · Smoke</td><td>curl / scripted checks</td><td><strong>Preview (green) service</strong></td><td>Did the new version actually start &amp; respond? Health + key endpoints return 200.</td></tr>
+        <tr><td><span class="pill amber">Performance</span></td><td>6 · Perf</td><td>k6</td><td>Preview (green) service</td><td>Latency/throughput regressions under synthetic load before going live.</td></tr>
+        <tr><td><span class="pill purple">E2E</span></td><td>7 · E2E</td><td>Newman (Postman)</td><td>Preview (green) service</td><td>Full happy-path API flows across endpoints behave correctly.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Where each runs in the flow</h3>
+    <div class="steps">
+      <div class="step"><h4>Before the image is built — Unit &amp; Integration</h4><p>Stages 1–2 fail fast and cheap. If logic or wiring is broken, the pipeline stops before anything is pushed or deployed.</p></div>
+      <div class="step"><h4>After green is deployed — Smoke, Performance, E2E</h4><p>Stages 5–7 run against the <strong>preview service</strong> only — real users are still on blue. These validate the running container, not just the code.</p></div>
+      <div class="step"><h4>Automated pre-promotion analysis</h4><p>Independently, Argo Rollouts' <code>AnalysisTemplate</code> hits <code>/actuator/health/readiness</code> 3× on the preview and blocks promotion unless all return <code>UP</code> — a safety net even outside the pipeline.</p></div>
+      <div class="step"><h4>Any failure → rollback</h4><p>If smoke, performance or E2E fails, the <code>rollback</code> job (<code>if: failure()</code>) aborts the rollout and undoes it — blue keeps serving, zero user impact.</p></div>
+    </div>
+
+    <div class="callout warn">
+      <strong>The honest limit of pre-promotion testing.</strong>
+      Stages 5–7 use <em>synthetic</em> traffic and test data on the preview service — they cannot exercise
+      real production load or real user data until traffic actually flips. That is why the real safety net
+      is <strong>fast rollback</strong> (blue kept 30s) plus post-promotion metric monitoring, not the
+      assumption that the tests caught everything. See <a href="deployment.html#honest">Deployment</a>.
+    </div>
+
+    <div class="callout tip">
+      <strong>Test data lives in the repo.</strong>
+      The k6 script (<code>tests/performance/load-test.js</code>) and the Newman collection
+      (<code>tests/e2e/collection.json</code>) are version-controlled alongside the service, so the tests
+      evolve with the code.
+    </div>
+
+    <h2 id="runner">Self-Hosted Runner</h2>
+    <p>The pipeline runs on a self-hosted runner because it needs <code>kubectl</code> access to a cluster
+       that isn't publicly reachable. The runner polls GitHub over outbound HTTPS — GitHub never connects
+       inwards — so it works safely behind a firewall.</p>
+    <div class="callout info">
+      <strong>Build once, deploy many.</strong> The image is tagged with the git SHA and that same
+      immutable image is what gets promoted — so what you tested is exactly what goes live. In a multi-env
+      setup, build on a GitHub-hosted runner, then deploy with environment-specific self-hosted runners
+      labelled <code>dev</code> / <code>uat</code> / <code>prod</code>.
+    </div>
+
+    <h2 id="argo">Argo Rollouts vs Argo CD</h2>
+    <p>This repo uses <strong>Argo Rollouts</strong> (progressive delivery). It is often confused with
+       <strong>Argo CD</strong> (GitOps continuous delivery) — they are different tools from the same family
+       and are complementary.</p>
+    <table>
+      <thead><tr><th></th><th>Argo Rollouts <span class="pill green">used here</span></th><th>Argo CD <span class="pill gray">not used</span></th></tr></thead>
+      <tbody>
+        <tr><td>Purpose</td><td>Advanced deploy strategies (blue-green, canary)</td><td>Sync Git state → cluster (GitOps)</td></tr>
+        <tr><td>Replaces</td><td>The K8s <code>Deployment</code> object</td><td>The <code>kubectl apply</code> step</td></tr>
+        <tr><td>Trigger</td><td>Pipeline runs <code>set image</code> / <code>promote</code></td><td>Watches a Git repo and auto-applies</td></tr>
+        <tr><td>Source of truth</td><td>The pipeline</td><td>Git</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How Argo CD would integrate with GitHub Actions</h3>
+    <p>In a GitOps model the pipeline would <em>not</em> run <code>kubectl</code>. Instead:</p>
+    <div class="steps">
+      <div class="step"><h4>CI builds &amp; pushes the image</h4><p>GitHub Actions builds <code>image:&lt;sha&gt;</code> and pushes it — exactly as today (stages 1–3).</p></div>
+      <div class="step"><h4>CI updates the manifest in Git</h4><p>The pipeline bumps the image tag in a Kustomize/Helm file and commits it back to the repo.</p></div>
+      <div class="step"><h4>Argo CD detects the change</h4><p>Argo CD, running in the cluster, sees the Git change and syncs it automatically.</p></div>
+      <div class="step"><h4>Argo Rollouts performs the strategy</h4><p>Because the manifest is a <code>Rollout</code>, Argo CD hands off to Argo Rollouts for the blue-green/canary flip — the two tools work together.</p></div>
+    </div>
+
+    <h2 id="alternatives">Other Options in the Market</h2>
+    <table>
+      <thead><tr><th>Tool</th><th>Type</th><th>Rationale / when to pick</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Argo Rollouts</strong></td><td>Progressive delivery</td><td><span class="pill green">Chosen</span> — best-in-class blue-green/canary with metric analysis, K8s-native CRDs.</td></tr>
+        <tr><td>Argo CD</td><td>GitOps CD</td><td>Add when you want Git as the single source of truth &amp; drift detection.</td></tr>
+        <tr><td>Flux CD</td><td>GitOps CD</td><td>Lightweight GitOps alternative to Argo CD; great with Helm.</td></tr>
+        <tr><td>Spinnaker</td><td>CD platform</td><td>Powerful multi-cloud delivery; heavy to operate — for large orgs.</td></tr>
+        <tr><td>Jenkins</td><td>CI/CD server</td><td>Ubiquitous &amp; flexible, but you manage the server &amp; plugins yourself.</td></tr>
+        <tr><td>GitHub Actions</td><td>CI/CD</td><td><span class="pill green">Chosen for CI</span> — native to the repo, free minutes, easy self-hosted runners.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <strong>Where this repo sits today:</strong> GitHub Actions drives CI <em>and</em> CD imperatively
+      (it calls <code>kubectl</code> / <code>argo rollouts</code> directly). Adding Argo CD later would turn
+      it into a full GitOps pipeline without changing the blue-green mechanics — Argo Rollouts stays.
+    </div>
+
+    <div class="page-nav">
+      <a href="deployment.html"><div class="dir">← Previous</div><div class="ttl">Deployment &amp; Blue-Green</div></a>
+      <a class="next" href="tooling.html"><div class="dir">Next →</div><div class="ttl">Makefile &amp; Bootstrap</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setup Guide — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1><span class="logo">⬡</span> MyOrg Platform</h1>
+      <p>Microservices · Kubernetes · Observability</p>
+    </div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Getting Started</div>
+      <h1>Setup Guide (Windows)</h1>
+      <p class="lead">Everything you need to install, and the exact order to bring the platform up
+        from a fresh clone on a Windows machine.</p>
+    </div>
+
+    <h2 id="prereq">1. Prerequisites to Install</h2>
+    <p>Install these tools first. All are free.</p>
+    <table>
+      <thead><tr><th>Tool</th><th>Why it's needed</th><th>How to get it</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Docker Desktop</strong></td><td>Runs the local Kubernetes cluster and builds images</td><td>docker.com → enable Kubernetes in Settings</td></tr>
+        <tr><td><strong>kubectl</strong></td><td>Talks to the Kubernetes cluster</td><td>Ships with Docker Desktop</td></tr>
+        <tr><td><strong>Make</strong></td><td>Runs the workflow targets (<code>make up</code> etc.)</td><td>Not built into Windows — see <a href="#make">§2 below</a></td></tr>
+        <tr><td><strong>Git</strong></td><td>Clone the repo</td><td>git-scm.com</td></tr>
+        <tr><td><strong>JDK 21</strong> &amp; <strong>Maven</strong></td><td>Only if building outside Docker — each service has <code>mvnw.cmd</code></td><td>Temurin 21 (optional)</td></tr>
+        <tr><td><strong>kubectl-argo-rollouts</strong></td><td>Manage / promote blue-green rollouts</td><td>Argo Rollouts releases page</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <strong>Enable Kubernetes in Docker Desktop</strong>
+      Settings → Kubernetes → ✅ <em>Enable Kubernetes</em> → Apply &amp; Restart. Wait until the
+      bottom-left whale + k8s icons are green.
+    </div>
+
+    <h2 id="make">2. Installing Make on Windows</h2>
+    <p>Windows has no built-in <code>make</code>, but the whole workflow is driven by it
+       (<code>make up</code>, <code>make down</code>, …). Pick <strong>one</strong> of the options below.</p>
+
+    <h3>Option A — Chocolatey (recommended)</h3>
+    <div class="steps">
+      <div class="step"><h4>Install Chocolatey (one-time)</h4>
+        <p>Open <strong>PowerShell as Administrator</strong> and run:</p>
+<pre><code>Set-ExecutionPolicy Bypass -Scope Process -Force; `
+[System.Net.ServicePointManager]::SecurityProtocol = `
+  [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))</code></pre>
+        <p>Close and reopen the terminal so <code>choco</code> is on your PATH.</p>
+      </div>
+      <div class="step"><h4>Install Make</h4>
+<pre><code>choco install make -y</code></pre>
+      </div>
+      <div class="step"><h4>Verify</h4>
+<pre><code>make --version   <span class="c"># should print GNU Make x.x</span></code></pre>
+      </div>
+    </div>
+
+    <h3>Option B — winget</h3>
+<pre><code><span class="c"># Ships with modern Windows 10/11</span>
+winget install GnuWin32.Make
+<span class="c"># then add its bin folder to PATH, e.g.:</span>
+<span class="c"># C:\Program Files (x86)\GnuWin32\bin</span></code></pre>
+
+    <h3>Option C — Scoop</h3>
+<pre><code>scoop install make</code></pre>
+
+    <div class="callout tip">
+      <strong>No Make at all?</strong> Every target is just a few commands — you can read the
+      <code>Makefile</code> and run them by hand. See the
+      <a href="tooling.html">Makefile &amp; Bootstrap</a> page, which lists exactly what each target runs.
+    </div>
+
+    <div class="callout warn">
+      <strong>Git Bash / WSL note.</strong> If you run the workflow from Git Bash or WSL instead of
+      PowerShell, <code>make</code> may already be present (WSL: <code>sudo apt install make</code>).
+      The <code>Makefile</code> targets call PowerShell scripts for <code>bootstrap</code>/<code>health</code>,
+      so running from native Windows PowerShell with Chocolatey's <code>make</code> is the smoothest path.
+    </div>
+
+    <h2 id="registry">3. Docker Hub &amp; Registry Login</h2>
+    <p>The build/push targets reference images under the <code>dayasahu6077/*</code> Docker Hub account.
+       To <em>push</em>, you must be logged in to Docker and have write access to that namespace.</p>
+
+    <div class="callout danger">
+      <strong>You cannot push to someone else's account.</strong>
+      <code>make push</code> targets <code>dayasahu6077/...</code>. If you cloned this repo, you do
+      <em>not</em> have write access to that namespace — the push will return <code>403 denied</code>.
+      Use one of the options below.
+    </div>
+
+    <h3>Prerequisite — log in to Docker</h3>
+<pre><code><span class="c"># Authenticates and stores a token in ~/.docker/config.json</span>
+docker login
+<span class="c"># username + a Docker Hub access token (Account → Security → New Access Token)</span></code></pre>
+
+    <h3>Option A — Use your own Docker Hub account</h3>
+    <p>Point the image names at <em>your</em> namespace. The image prefix appears in the
+       <code>Makefile</code> (<code>build</code>/<code>push</code> targets) and in each service's
+       <code>k8/deployment.yaml</code> / <code>rollout.yaml</code>. Replace <code>dayasahu6077</code>
+       with your Docker Hub username, then:</p>
+<pre><code>docker login
+make build
+make push        <span class="c"># now pushes to YOUR namespace</span>
+make deploy</code></pre>
+
+    <h3>Option B — Local-only, no push needed</h3>
+    <p>With Docker Desktop's built-in Kubernetes, images you build locally are already visible to the
+       cluster — so you can skip <code>make push</code> entirely:</p>
+<pre><code>make build        <span class="c"># build images locally</span>
+make deploy       <span class="c"># deploy using the local images</span>
+<span class="c"># (do NOT run make push)</span></code></pre>
+    <div class="callout warn">
+      <strong>imagePullPolicy caveat.</strong> The manifests use <code>imagePullPolicy: Always</code>,
+      which forces Kubernetes to pull from the registry even when a local image exists. For the
+      local-only path, change it to <code>IfNotPresent</code> on the workloads you're iterating on so
+      the cluster uses your freshly-built local image.
+    </div>
+
+    <h3>How the CI pipeline authenticates</h3>
+    <p>The GitHub Actions blue-green workflow does <strong>not</strong> rely on your local login. It logs
+       in using repository secrets, so the runner can push without anyone's interactive credentials:</p>
+<pre><code><span class="c"># in blue-green-deploy.yml</span>
+docker login -u ${{ secrets.DOCKERHUB_USERNAME }} \
+             -p ${{ secrets.DOCKERHUB_TOKEN }}</code></pre>
+    <p>Set these under <strong>GitHub → repo → Settings → Secrets and variables → Actions</strong>:
+       <code>DOCKERHUB_USERNAME</code> and <code>DOCKERHUB_TOKEN</code> (a Docker Hub access token).</p>
+
+    <h2 id="hosts">4. Hosts File Entries</h2>
+    <p>The platform uses clean ingress hostnames. Map them to localhost. Edit
+       <code>C:\Windows\System32\drivers\etc\hosts</code> as Administrator and add:</p>
+<pre><code>127.0.0.1   api.myorg.com
+127.0.0.1   grafana.myorg.com
+127.0.0.1   prometheus.myorg.com
+127.0.0.1   dashboard.myorg.com</code></pre>
+
+    <h2 id="bootstrap">5. One-Time Cluster Bootstrap</h2>
+    <p>A brand-new cluster needs three pieces of infrastructure installed once. The
+       <code>scripts/bootstrap.ps1</code> helper does all three:</p>
+    <div class="grid grid-3">
+      <div class="feature"><div class="ico">🌐</div><h4>NGINX Ingress</h4><p>The single load balancer that serves every hostname.</p></div>
+      <div class="feature"><div class="ico">🚀</div><h4>Argo Rollouts</h4><p>The controller that powers blue-green deployments.</p></div>
+      <div class="feature"><div class="ico">📺</div><h4>K8s Dashboard</h4><p>Web UI for the cluster, exposed on NodePort 30443.</p></div>
+    </div>
+<pre><code><span class="c"># From the repo root — installs ingress, Argo Rollouts, dashboard</span>
+make bootstrap
+
+<span class="c"># or directly:</span>
+powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1</code></pre>
+
+    <div class="callout warn">
+      <strong>Run bootstrap only once per cluster.</strong>
+      It is idempotent but unnecessary on subsequent runs. <code>make up</code> handles everyday deploys.
+    </div>
+
+    <h2 id="up">6. Bring the Whole Platform Up</h2>
+    <p>A single command builds images, deploys observability, deploys all services, and applies the ingress:</p>
+<pre><code>make up</code></pre>
+    <p>Under the hood this runs, in order:</p>
+    <div class="steps">
+      <div class="step"><h4>obs-up</h4><p>Applies <code>observability/k8</code> and waits for Loki, Tempo, Prometheus, Grafana (and Alloy) to be ready.</p></div>
+      <div class="step"><h4>build</h4><p>Builds Docker images for all five services.</p></div>
+      <div class="step"><h4>push</h4><p>Pushes images to Docker Hub (<code>dayasahu6077/*</code>).</p></div>
+      <div class="step"><h4>deploy</h4><p>Creates the <code>microservices</code> namespace, applies the root Kustomize, and sets images.</p></div>
+      <div class="step"><h4>ingress</h4><p>Applies <code>apigateway-ingress.yaml</code> for <code>api.myorg.com</code>.</p></div>
+    </div>
+
+    <h3>Check status &amp; logs</h3>
+<pre><code>make status   <span class="c"># pods/services in both namespaces</span>
+make logs     <span class="c"># tail all service logs</span>
+make health   <span class="c"># run the health-check script</span>
+make down     <span class="c"># tear everything down</span></code></pre>
+
+    <h2 id="dashboard">7. Kubernetes Dashboard + Static Token</h2>
+    <p>The bootstrap script exposes the dashboard as a NodePort service and creates an
+       <code>admin-user</code> service account bound to <code>cluster-admin</code>.</p>
+
+    <h3>Access the dashboard</h3>
+<pre><code><span class="c"># Open in browser (accept the self-signed cert warning):</span>
+https://localhost:30443
+<span class="c"># or via ingress:</span>
+https://dashboard.myorg.com</code></pre>
+
+    <h3>Generate a login token</h3>
+<pre><code><span class="c"># Short-lived token (default ~1 hour):</span>
+kubectl -n kubernetes-dashboard create token admin-user</code></pre>
+
+    <div class="callout tip">
+      <strong>Need a long-lived (static) token?</strong>
+      Create a Secret of type <code>kubernetes.io/service-account-token</code> bound to the account,
+      then read it back:
+    </div>
+<pre><code><span class="c"># 1. Create a non-expiring token secret</span>
+kubectl apply -f - <span class="k">&lt;&lt;EOF</span>
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user-token
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/service-account.name: admin-user
+type: kubernetes.io/service-account-token
+EOF
+
+<span class="c"># 2. Read the static token</span>
+kubectl -n kubernetes-dashboard get secret admin-user-token \
+  -o jsonpath="{.data.token}" | base64 -d</code></pre>
+    <p>Paste the resulting token into the dashboard's <em>Token</em> login field.</p>
+
+    <h2 id="access">8. Access URLs</h2>
+    <table>
+      <thead><tr><th>What</th><th>URL</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>APIs</td><td><code>http://api.myorg.com</code></td><td>via NGINX ingress → gateway</td></tr>
+        <tr><td>Grafana</td><td><code>http://grafana.myorg.com</code> or <code>:30300</code></td><td>anonymous admin</td></tr>
+        <tr><td>Prometheus</td><td><code>http://prometheus.myorg.com</code> or <code>:30900</code></td><td>NodePort</td></tr>
+        <tr><td>K8s Dashboard</td><td><code>https://localhost:30443</code></td><td>token login</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="smoke">9. Smoke-Test the Platform</h2>
+<pre><code><span class="c"># 1. Get a JWT from the auth-service (through the gateway)</span>
+curl -X POST http://api.myorg.com/auth/token \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"12345\"}"
+
+<span class="c"># 2. Call a protected endpoint with the token</span>
+curl http://api.myorg.com/employee/api/employees \
+  -H "Authorization: Bearer &lt;token&gt;"
+
+<span class="c"># 3. Service-to-service call (employee → department)</span>
+curl http://api.myorg.com/employee/api/departments \
+  -H "Authorization: Bearer &lt;token&gt;"</code></pre>
+
+    <div class="callout danger">
+      <strong>Common gotcha: <code>host.docker.internal</code> does not resolve inside K8s pods.</strong>
+      Always use Kubernetes DNS (e.g. <code>alloy.observability.svc.cluster.local</code>) or the real
+      machine IP for pod-to-host communication — never <code>host.docker.internal</code> in pod env vars.
+    </div>
+
+    <div class="page-nav">
+      <a href="index.html"><div class="dir">← Previous</div><div class="ttl">Overview &amp; Architecture</div></a>
+      <a class="next" href="structure.html"><div class="dir">Next →</div><div class="ttl">Repository Map</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Makefile &amp; Bootstrap — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Operations</div>
+      <h1>Makefile &amp; Bootstrap</h1>
+      <p class="lead">The glue that spins up the entire environment with a single command, and the
+        one-time scripts that prepare a fresh cluster.</p>
+    </div>
+
+    <h2 id="makefile">The Makefile</h2>
+    <p>The root <code>Makefile</code> is the everyday control panel. It orchestrates Kustomize, Docker,
+       and the observability stack so you rarely type raw <code>kubectl</code>.</p>
+    <div class="callout warn">
+      <strong>Prerequisite:</strong> Windows has no built-in <code>make</code>. Install it first
+      (<code>choco install make</code>) — see <a href="setup.html#make">Setup Guide → Installing Make on Windows</a>.
+      No Make? Each target is just a handful of commands you can run by hand from the table below.
+    </div>
+    <table>
+      <thead><tr><th>Target</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>make bootstrap</code></td><td>One-time: installs NGINX Ingress, Argo Rollouts, K8s Dashboard (calls <code>scripts/bootstrap.ps1</code>).</td></tr>
+        <tr><td><code>make up</code></td><td>Full stack: <code>obs-up → build → push → deploy → ingress</code>.</td></tr>
+        <tr><td><code>make down</code></td><td>Deletes the app, ingress, and both namespaces.</td></tr>
+        <tr><td><code>make obs-up</code></td><td>Applies <code>observability/k8</code> and waits for all components ready.</td></tr>
+        <tr><td><code>make build</code> / <code>push</code></td><td>Builds / pushes all five service images (<code>IMAGE_TAG</code> configurable).</td></tr>
+        <tr><td><code>make deploy</code></td><td>Creates namespace, <code>kubectl apply -k .</code>, sets images, waits for rollout.</td></tr>
+        <tr><td><code>make ingress</code></td><td>Applies the API gateway ingress (<code>api.myorg.com</code>).</td></tr>
+        <tr><td><code>make status</code></td><td>Pods/services/ingress across both namespaces.</td></tr>
+        <tr><td><code>make health</code></td><td>Runs <code>scripts/health-check.ps1</code>.</td></tr>
+        <tr><td><code>make logs</code></td><td>Tails logs for all services by the shared label.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>What <code>make up</code> chains together</h3>
+<pre><code>up: obs-up build push deploy ingress
+
+<span class="c"># obs-up — observability into K8s, then wait for readiness</span>
+obs-up:
+	kubectl apply -k observability/k8
+	kubectl rollout status deployment/loki       -n observability --timeout=120s
+	kubectl rollout status deployment/grafana    -n observability --timeout=120s
+	<span class="c"># ...tempo, prometheus (Deployments) + alloy (DaemonSet)</span>
+
+<span class="c"># deploy — namespace + Kustomize + set images + wait</span>
+deploy:
+	kubectl create namespace microservices --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -k .
+	<span class="c"># Deployments use the standard plugin...</span>
+	kubectl -n microservices set image deployment/apigateway apigateway=dayasahu6077/ms-api-gateway:$(IMAGE_TAG)
+	<span class="c"># ...but employee & department are Argo Rollouts, so:</span>
+	kubectl argo rollouts -n microservices set image employee employee=dayasahu6077/employee:$(IMAGE_TAG)
+	<span class="c"># then wait: kubectl argo rollouts status employee</span></code></pre>
+
+    <div class="callout warn">
+      <strong>Deployments vs Rollouts.</strong> <code>employee</code> and <code>department</code> are
+      Argo <code>Rollout</code> objects, not <code>Deployment</code>s — so they use
+      <code>kubectl argo rollouts set image / status</code>, while configserver, apigateway and
+      auth-service use the standard <code>kubectl set image / rollout status deployment/…</code>.
+      The <code>Makefile</code> handles both correctly.
+    </div>
+
+    <div class="callout info">
+      <strong>IMAGE_TAG is configurable.</strong> Default is <code>latest</code>; override per build:
+      <code>make deploy IMAGE_TAG=v1.2.0</code>. In CI this is set to the git SHA for immutable images.
+    </div>
+
+    <h2 id="root-kustomize">Root Kustomization</h2>
+    <p><code>make deploy</code>'s <code>kubectl apply -k .</code> uses the root <code>kustomization.yaml</code>
+       as the single source of truth for the <code>microservices</code> namespace. It applies resources
+       in dependency order:</p>
+    <div class="steps">
+      <div class="step"><h4>ConfigMaps first</h4><p>employee / department / apigateway dev overlays — must exist before the config server mounts them.</p></div>
+      <div class="step"><h4>Shared secret</h4><p><code>jwt-secret</code> for gateway + auth-service.</p></div>
+      <div class="step"><h4>Config server</h4><p>Deployment + service, so other services can pull config.</p></div>
+      <div class="step"><h4>Business services</h4><p>employee &amp; department as <strong>Rollouts</strong> (+ preview service &amp; analysis template); gateway as a Deployment.</p></div>
+      <div class="step"><h4>Auth service</h4><p>Deployment + service.</p></div>
+    </div>
+    <p>A shared label is stamped on everything for easy selection:</p>
+<pre><code>labels:
+  - pairs:
+      app.kubernetes.io/part-of: microservices-training
+      environment: dev
+    includeSelectors: <span class="k">true</span></code></pre>
+
+    <h2 id="bootstrap">scripts/bootstrap.ps1</h2>
+    <p>Run once on a new cluster. It installs the three infrastructure pieces the platform assumes exist:</p>
+    <table>
+      <thead><tr><th>Step</th><th>Installs</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>NGINX Ingress Controller</td><td>The single LB serving every hostname; waits for the controller pod to be ready.</td></tr>
+        <tr><td>2</td><td>Argo Rollouts</td><td>Creates <code>argo-rollouts</code> namespace and applies the controller; powers blue-green.</td></tr>
+        <tr><td>3</td><td>Kubernetes Dashboard</td><td>Installs the dashboard, exposes it as NodePort <code>30443</code>, and creates an <code>admin-user</code> + <code>cluster-admin</code> binding.</td></tr>
+      </tbody>
+    </table>
+    <p>Flags let you skip pieces already installed:</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1 -SkipIngress -SkipArgo</code></pre>
+
+    <h2 id="other-scripts">Other Helper Files</h2>
+    <div class="grid grid-2">
+      <div class="card"><h4><code>bootstrap.ps1</code> (root)</h4><p>Legacy Docker-Compose helper for running the observability stack <em>outside</em> Kubernetes (<code>-Down</code>, <code>-Nuke</code> flags). The K8s path via <code>make obs-up</code> is now preferred.</p></div>
+      <div class="card"><h4><code>scripts/health-check.ps1</code></h4><p>Invoked by <code>make health</code> — verifies pods and key endpoints in the namespace.</p></div>
+      <div class="card"><h4><code>generate-secrets.sh</code></h4><p>Generates the JWT secret material used by the <code>jwt-secret</code> Kubernetes Secret.</p></div>
+      <div class="card"><h4><code>Dockerfile</code> (per service)</h4><p>Multi-stage build: Maven builds the jar, then a slim <code>eclipse-temurin:21-jre</code> runtime — no JDK needed on the host.</p></div>
+    </div>
+
+    <h2 id="daily">Typical Daily Loop</h2>
+<pre><code>make bootstrap          <span class="c"># once per new cluster</span>
+make up                 <span class="c"># build + deploy everything</span>
+make status             <span class="c"># confirm pods are Running</span>
+<span class="c"># ... develop, change code ...</span>
+make build push deploy  <span class="c"># ship a new image</span>
+make logs               <span class="c"># watch output</span>
+make down               <span class="c"># tear it all down</span></code></pre>
+
+    <div class="callout tip">
+      <strong>One-command environment.</strong> The combination of the Makefile (orchestration),
+      bootstrap script (one-time infra), root Kustomization (what to deploy) and multi-stage Dockerfiles
+      (how to build) means anyone can clone the repo and reach a running platform with
+      <code>make bootstrap</code> then <code>make up</code>.
+    </div>
+
+    <div class="page-nav">
+      <a href="cicd.html"><div class="dir">← Previous</div><div class="ttl">CI/CD &amp; Argo</div></a>
+      <a class="next" href="api-reference.html"><div class="dir">Next →</div><div class="ttl">API Reference</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

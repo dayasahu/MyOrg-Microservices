@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Reference — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav"></nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Reference</div>
+      <h1>API Reference</h1>
+      <p class="lead">Every endpoint each service exposes, how to reach it through the gateway, and the
+        actuator paths used for health and metrics.</p>
+    </div>
+
+    <div class="callout info">
+      <strong>Everything goes through the gateway.</strong> Externally you call
+      <code>http://api.myorg.com/&lt;service&gt;/...</code>. The gateway strips the first path segment
+      (<code>StripPrefix=1</code>), so <code>/employee/api/employees</code> hits the employee service as
+      <code>/api/employees</code>. All routes except <code>/auth/**</code> require a
+      <code>Bearer</code> JWT.
+    </div>
+
+    <h2 id="auth">auth-service</h2>
+    <p>Issues JWTs. Reached via <code>/auth/**</code> (whitelisted — no token required).</p>
+    <table>
+      <thead><tr><th>Method</th><th>Gateway path</th><th>Service path</th><th>Body / Result</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill green">POST</span></td><td><code>/auth/token</code></td><td><code>/token</code></td><td>Body <code>{"userId":"12345"}</code> → <code>{"token":"&lt;jwt&gt;"}</code></td></tr>
+        <tr><td><span class="pill blue">GET</span></td><td>—</td><td><code>/swagger-ui/index.html</code></td><td>OpenAPI UI (direct on the service)</td></tr>
+      </tbody>
+    </table>
+<pre><code><span class="c"># Get a token</span>
+curl -X POST http://api.myorg.com/auth/token \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"12345\"}"
+<span class="c"># → {"token":"eyJhbGciOiJIUzI1NiJ9..."}</span></code></pre>
+
+    <h2 id="employee">employee</h2>
+    <p>Base path <code>/api</code>. Reached via <code>/employee/**</code>.</p>
+    <table>
+      <thead><tr><th>Method</th><th>Gateway path</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/employee/api/hello</code></td><td><code>"Welcome to Demo"</code></td></tr>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/employee/api/employees</code></td><td>JSON array of 5 employees (id, name, role)</td></tr>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/employee/api/profile</code></td><td>Active Spring profiles, e.g. <code>["dev"]</code></td></tr>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/employee/api/envmsg</code></td><td>Message from config (<code>poc.environment.msg</code>)</td></tr>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/employee/api/departments</code></td><td><strong>Calls department</strong> (<code>http://department/api/list</code>) reactively and returns its response</td></tr>
+      </tbody>
+    </table>
+<pre><code>TOKEN=$(curl -s -X POST http://api.myorg.com/auth/token \
+  -H "Content-Type: application/json" -d "{\"userId\":\"12345\"}" | jq -r .token)
+
+curl http://api.myorg.com/employee/api/employees   -H "Authorization: Bearer $TOKEN"
+curl http://api.myorg.com/employee/api/departments -H "Authorization: Bearer $TOKEN"  <span class="c"># cross-service</span></code></pre>
+
+    <h2 id="department">department</h2>
+    <p>Base path <code>/api</code>. Reached via <code>/department/**</code>. Also called internally by
+       employee through Kubernetes DNS.</p>
+    <table>
+      <thead><tr><th>Method</th><th>Gateway path</th><th>Internal call</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill blue">GET</span></td><td><code>/department/api/list</code></td><td><code>http://department/api/list</code></td><td>JSON array of departments</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="actuator">Actuator (all services)</h2>
+    <p>Every service exposes Spring Boot Actuator. These are used by Kubernetes probes and Prometheus —
+       and are handy for debugging.</p>
+    <table>
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/actuator/health</code></td><td>Overall health (details shown)</td></tr>
+        <tr><td><code>/actuator/health/liveness</code></td><td>K8s liveness probe — restart if down</td></tr>
+        <tr><td><code>/actuator/health/readiness</code></td><td>K8s readiness probe — also drives blue-green smoke analysis</td></tr>
+        <tr><td><code>/actuator/prometheus</code></td><td>Metrics in Prometheus format (scraped)</td></tr>
+        <tr><td><code>/actuator/metrics</code></td><td>Browse individual metrics</td></tr>
+        <tr><td><code>/actuator/info</code> · <code>/env</code> · <code>/loggers</code> · <code>/mappings</code></td><td>Build info, resolved config, log levels, route mappings</td></tr>
+      </tbody>
+    </table>
+<pre><code><span class="c"># From inside the cluster (or via port-forward):</span>
+kubectl exec deploy/apigateway -n microservices -- wget -qO- http://localhost:8888/actuator/health
+<span class="c"># Readiness used by the blue-green smoke test:</span>
+.../actuator/health/readiness   <span class="c"># expects {"status":"UP"}</span></code></pre>
+
+    <h2 id="ports">Ports &amp; Internal DNS</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Container port</th><th>Cluster DNS</th></tr></thead>
+      <tbody>
+        <tr><td>ms-api-gateway</td><td>8888</td><td><code>apigateway:80</code></td></tr>
+        <tr><td>auth-service</td><td>9000</td><td><code>auth-service:9000</code></td></tr>
+        <tr><td>employee</td><td>8080</td><td><code>employee:80</code></td></tr>
+        <tr><td>department</td><td>8080</td><td><code>department:80</code></td></tr>
+        <tr><td>configserver</td><td>8071</td><td><code>configserver:8071</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>401 Unauthorized?</strong> Every path except <code>/auth/**</code> needs a valid
+      <code>Authorization: Bearer &lt;token&gt;</code> header. Get a token from <code>/auth/token</code> first.
+    </div>
+
+    <div class="page-nav">
+      <a href="tooling.html"><div class="dir">← Previous</div><div class="ttl">Makefile &amp; Bootstrap</div></a>
+      <a class="next" href="commands.html"><div class="dir">Next →</div><div class="ttl">Command Cheat Sheet</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

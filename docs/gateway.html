@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Gateway — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Architecture</div>
+      <h1>API Gateway Design Pattern</h1>
+      <p class="lead">One door into the system. The gateway routes every request and enforces
+        authentication before anything reaches a business service.</p>
+    </div>
+
+    <h2 id="why">Why an API Gateway?</h2>
+    <div class="grid grid-2">
+      <div class="feature"><div class="ico">🚪</div><h4>Single Entry Point</h4><p>Clients call one host (<code>api.myorg.com</code>) instead of tracking five service URLs.</p></div>
+      <div class="feature"><div class="ico">🔐</div><h4>Centralized Auth</h4><p>JWT validation happens once at the edge — services downstream stay simple.</p></div>
+      <div class="feature"><div class="ico">🧭</div><h4>Routing in Config</h4><p>Routes are properties served by the config server, changeable without a rebuild.</p></div>
+      <div class="feature"><div class="ico">🛡️</div><h4>Topology Hiding</h4><p>Internal service names &amp; ports never leak to clients.</p></div>
+    </div>
+
+    <h2 id="routes">Routing Rules</h2>
+    <p>Routes are defined in <code>apigateway.properties</code> (served by the config server). Each route
+       matches a path prefix, forwards to a cluster-internal service, and strips the first path segment.</p>
+    <table>
+      <thead><tr><th>Incoming Path</th><th>Routed To</th><th>Filter</th><th>Service receives</th></tr></thead>
+      <tbody>
+        <tr><td><code>/employee/**</code></td><td><code>http://employee:80</code></td><td><code>StripPrefix=1</code></td><td><code>/api/...</code></td></tr>
+        <tr><td><code>/department/**</code></td><td><code>http://department:80</code></td><td><code>StripPrefix=1</code></td><td><code>/api/...</code></td></tr>
+        <tr><td><code>/auth/**</code></td><td><code>http://auth-service:9000</code></td><td><code>StripPrefix=1</code></td><td><code>/token</code></td></tr>
+      </tbody>
+    </table>
+<pre><code><span class="c"># apigateway.properties — route 0 (employee)</span>
+spring.cloud.gateway.server.webflux.routes[0].id=employee-route
+spring.cloud.gateway.server.webflux.routes[0].uri=http://employee:80
+spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/employee/**
+spring.cloud.gateway.server.webflux.routes[0].filters[0]=StripPrefix=1</code></pre>
+
+    <h2 id="jwt">JWT Authentication Flow</h2>
+    <p>The gateway implements a reactive <code>GlobalFilter</code> with order <code>-1</code> (runs before
+       routing). <code>/auth/**</code> is whitelisted so clients can obtain a token; every other route
+       requires a valid <code>Bearer</code> token.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs>
+          <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#5b6678"/></marker>
+          <style>.l{font-size:12px;fill:#1f2733;font-weight:600}.s{font-size:10.5px;fill:#5b6678}</style>
+        </defs>
+        <!-- actors -->
+        <rect x="20" y="30" width="110" height="46" rx="9" fill="#1d2752"/><text x="75" y="58" text-anchor="middle" class="l" fill="#fff">Client</text>
+        <rect x="300" y="30" width="130" height="46" rx="9" fill="#4f6bff"/><text x="365" y="58" text-anchor="middle" class="l" fill="#fff">Gateway</text>
+        <rect x="600" y="30" width="130" height="46" rx="9" fill="#8b5cf6"/><text x="665" y="58" text-anchor="middle" class="l" fill="#fff">auth-service</text>
+        <rect x="600" y="250" width="130" height="46" rx="9" fill="#1ea672"/><text x="665" y="278" text-anchor="middle" class="l" fill="#fff">employee</text>
+
+        <!-- step 1: get token -->
+        <line x1="130" y1="50" x2="298" y2="50" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="150" y="42" class="s">1. POST /auth/token</text>
+        <line x1="430" y1="50" x2="598" y2="50" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="450" y="42" class="s">2. whitelisted → forward</text>
+        <line x1="598" y1="68" x2="432" y2="68" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="450" y="92" class="s">3. signed JWT</text>
+        <line x1="298" y1="68" x2="132" y2="68" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="150" y="92" class="s">4. token returned</text>
+
+        <!-- step 5: protected call -->
+        <line x1="130" y1="150" x2="298" y2="150" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="140" y="142" class="s">5. GET /employee/... + Bearer</text>
+
+        <!-- validation box -->
+        <rect x="300" y="120" width="200" height="90" rx="9" fill="#eef1ff" stroke="#c7d0f5"/>
+        <text x="400" y="146" text-anchor="middle" class="l">JwtAuthenticationFilter</text>
+        <text x="400" y="165" text-anchor="middle" class="s">order = -1 (pre-routing)</text>
+        <text x="400" y="182" text-anchor="middle" class="s">verify HS256 signature</text>
+        <text x="400" y="198" text-anchor="middle" class="s">valid → continue · else 401</text>
+
+        <!-- forward to employee -->
+        <line x1="430" y1="200" x2="598" y2="265" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <text x="455" y="245" class="s">6. StripPrefix → /api/...</text>
+
+        <!-- 401 path -->
+        <line x1="300" y1="195" x2="132" y2="165" stroke="#e0584f" stroke-width="2" marker-end="url(#a)"/>
+        <text x="150" y="190" class="s" style="fill:#e0584f">✗ no/invalid token → 401</text>
+      </svg>
+      <div class="caption">Figure 2 — JWT issuance and gateway validation. The secret is shared between auth-service and gateway via the <code>jwt-secret</code> Kubernetes Secret.</div>
+    </div>
+
+    <h2 id="code">How the Code Solves It</h2>
+    <p>The filter is concise and reactive (non-blocking). Whitelisting, header check, signature
+       verification and a structured log line — all in one place:</p>
+<pre><code><span class="k">@Component</span>
+<span class="k">public class</span> JwtAuthenticationFilter <span class="k">implements</span> GlobalFilter, Ordered {
+
+  <span class="k">@Value</span>(<span class="s">"${jwt.secret}"</span>) <span class="k">private</span> String secret;
+
+  <span class="k">public</span> Mono&lt;Void&gt; filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    String path = exchange.getRequest().getURI().getPath();
+    <span class="k">if</span> (path.startsWith(<span class="s">"/auth"</span>)) <span class="k">return</span> chain.filter(exchange);   <span class="c">// whitelist</span>
+
+    String authHeader = exchange.getRequest().getHeaders().getFirst(AUTHORIZATION);
+    <span class="k">if</span> (authHeader == <span class="k">null</span> || !authHeader.startsWith(<span class="s">"Bearer "</span>)) {
+      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+      <span class="k">return</span> exchange.getResponse().setComplete();           <span class="c">// 401</span>
+    }
+    <span class="k">try</span> {
+      Claims claims = Jwts.parser().verifyWith(signingKey()).build()
+          .parseSignedClaims(authHeader.substring(<span class="n">7</span>)).getPayload();
+      log.info(<span class="s">"JWT validated | subject={} roles={}"</span>, claims.getSubject(), claims.get(<span class="s">"roles"</span>));
+      <span class="k">return</span> chain.filter(exchange);                          <span class="c">// pass through</span>
+    } <span class="k">catch</span> (Exception e) {
+      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+      <span class="k">return</span> exchange.getResponse().setComplete();
+    }
+  }
+  <span class="k">public int</span> getOrder() { <span class="k">return</span> -<span class="n">1</span>; }   <span class="c">// run before routing</span>
+}</code></pre>
+
+    <div class="callout info">
+      <strong>Shared secret, two sides.</strong>
+      The auth-service signs with <code>jwt.secret</code>; the gateway verifies with the same value.
+      Both read it from the <code>jwt-secret</code> Kubernetes Secret injected as <code>JWT_SECRET</code>.
+      The token carries a 24h expiry (<code>jwt.expiration:86400000</code> ms).
+    </div>
+
+    <h2 id="secret">JWT Secret — Generation &amp; Rotation</h2>
+    <p>Both the auth-service (signing) and the gateway (verifying) read the same HMAC secret from a
+       Kubernetes Secret named <code>jwt-secret</code>, injected as the <code>JWT_SECRET</code> env var.</p>
+<pre><code><span class="c"># auth-service/k8/secret.yaml</span>
+apiVersion: v1
+kind: Secret
+metadata: { name: jwt-secret }
+type: Opaque
+stringData:
+  <span class="c"># DEV ONLY — regenerate before any non-local cluster</span>
+  JWT_SECRET: "myDefaultSecretKey1234567890abcdefghij"</code></pre>
+<pre><code><span class="c"># both deployments inject it the same way</span>
+env:
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef: { name: jwt-secret, key: JWT_SECRET }</code></pre>
+
+    <h3>Generate a strong secret</h3>
+<pre><code><span class="c"># HMAC-SHA256 needs ≥32 bytes; 48 bytes base64 is plenty</span>
+openssl rand -base64 48</code></pre>
+    <p>Put the value in the Secret (<code>stringData</code> takes plain text — Kubernetes base64-encodes it
+       for you), then re-apply and restart the two consumers:</p>
+<pre><code>kubectl apply -f auth-service/k8/secret.yaml -n microservices
+kubectl rollout restart deployment/auth-service -n microservices
+kubectl rollout restart deployment/apigateway   -n microservices</code></pre>
+
+    <div class="callout danger">
+      <strong>The default secret is for local dev only.</strong> It is committed for convenience — never
+      ship it. For anything beyond a local cluster, generate a fresh secret and source it from a real
+      secret manager (AWS Secrets Manager, Sealed Secrets, Vault) rather than a committed file.
+    </div>
+    <div class="callout warn">
+      <strong>Rotation note.</strong> Because the secret is shared and symmetric (HS256), rotating it
+      invalidates all existing tokens. Roll auth-service and the gateway together so signing and
+      verification never drift.
+    </div>
+
+    <div class="page-nav">
+      <a href="patterns.html"><div class="dir">← Previous</div><div class="ttl">Design Patterns</div></a>
+      <a class="next" href="config-server.html"><div class="dir">Next →</div><div class="ttl">Config Server</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

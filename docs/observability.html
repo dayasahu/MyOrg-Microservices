@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observability — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Operations</div>
+      <h1>Observability Stack</h1>
+      <p class="lead">The three pillars — logs, metrics and traces — collected by one agent and
+        visualised in Grafana, all running inside the cluster.</p>
+    </div>
+
+    <h2 id="stack">The LGTM Stack + Alloy</h2>
+    <div class="grid grid-3">
+      <div class="feature"><div class="ico" style="background:#fdeeec">🔴</div><h4>Loki</h4><p>Log storage. Indexes labels, not full text — cheap and fast.</p></div>
+      <div class="feature"><div class="ico" style="background:#fff7e8">🟠</div><h4>Tempo</h4><p>Distributed trace storage, queried by TraceQL.</p></div>
+      <div class="feature"><div class="ico" style="background:#eef4ff">🔵</div><h4>Prometheus</h4><p>Time-series metrics; scrape + remote-write.</p></div>
+      <div class="feature"><div class="ico" style="background:#e9faf2">🟢</div><h4>Grafana</h4><p>Single UI for all three, with 6 pre-built dashboards.</p></div>
+      <div class="feature"><div class="ico" style="background:#141a2e">⬡</div><h4>Grafana Alloy</h4><p>One DaemonSet agent: collects logs, traces &amp; metrics.</p></div>
+      <div class="feature"><div class="ico" style="background:#efe7ff">🤖</div><h4>LLM plugin</h4><p>Optional AI query assistant (Ollama) for natural-language PromQL/LogQL.</p></div>
+    </div>
+
+    <h2 id="pipeline">The Telemetry Pipeline</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#5b6678"/></marker>
+        <style>.l{font-size:12px;fill:#1f2733;font-weight:600}.s{font-size:10px;fill:#5b6678}.w{fill:#fff}</style></defs>
+
+        <rect x="20" y="120" width="150" height="110" rx="10" fill="#1ea672"/>
+        <text x="95" y="150" text-anchor="middle" class="l w">Spring Boot</text>
+        <text x="95" y="168" text-anchor="middle" class="s" fill="#d8f7ea">services (×5)</text>
+        <text x="95" y="190" text-anchor="middle" class="s" fill="#d8f7ea">OTLP traces+metrics</text>
+        <text x="95" y="206" text-anchor="middle" class="s" fill="#d8f7ea">stdout logs (JSON)</text>
+
+        <rect x="280" y="120" width="170" height="110" rx="10" fill="#141a2e"/>
+        <text x="365" y="150" text-anchor="middle" class="l w">Grafana Alloy</text>
+        <text x="365" y="168" text-anchor="middle" class="s" fill="#9fb0d8">DaemonSet (per node)</text>
+        <text x="365" y="190" text-anchor="middle" class="s" fill="#9fb0d8">OTLP receiver :4318</text>
+        <text x="365" y="206" text-anchor="middle" class="s" fill="#9fb0d8">tails pod stdout</text>
+
+        <rect x="560" y="30"  width="150" height="46" rx="9" fill="#e0584f"/><text x="635" y="58" text-anchor="middle" class="l w">Loki (logs)</text>
+        <rect x="560" y="100" width="150" height="46" rx="9" fill="#e8a32d"/><text x="635" y="128" text-anchor="middle" class="l w">Tempo (traces)</text>
+        <rect x="560" y="170" width="150" height="46" rx="9" fill="#2f6df6"/><text x="635" y="198" text-anchor="middle" class="l w">Prometheus</text>
+
+        <rect x="560" y="250" width="300" height="60" rx="10" fill="#00b8a9"/>
+        <text x="710" y="276" text-anchor="middle" class="l w">Grafana</text>
+        <text x="710" y="294" text-anchor="middle" class="s" fill="#d6fff9">dashboards · Explore · trace↔log correlation</text>
+
+        <line x1="170" y1="175" x2="278" y2="175" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="450" y1="150" x2="558" y2="55"  stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="450" y1="165" x2="558" y2="123" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="450" y1="185" x2="558" y2="193" stroke="#5b6678" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="635" y1="76"  x2="640" y2="248" stroke="#00b8a9" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a)"/>
+        <line x1="635" y1="146" x2="660" y2="248" stroke="#00b8a9" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a)"/>
+        <line x1="635" y1="216" x2="690" y2="248" stroke="#00b8a9" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a)"/>
+
+        <text x="200" y="168" class="s">push/tail</text>
+        <text x="465" y="110" class="s">route by type</text>
+        <text x="540" y="240" class="s" style="fill:#00b8a9">query</text>
+      </svg>
+      <div class="caption">Figure 4 — Services emit OTLP + stdout → Alloy fans out to Loki/Tempo/Prometheus → Grafana queries all three.</div>
+    </div>
+
+    <h3>How each pillar flows</h3>
+    <div class="kvs">
+      <dt>Metrics</dt><dd>Services expose <code>/actuator/prometheus</code>; Prometheus scrapes via K8s DNS, and Alloy also forwards OTLP metrics via remote-write.</dd>
+      <dt>Traces</dt><dd>Micrometer Tracing + OTLP exporter → Alloy OTLP receiver (<code>:4318</code>) → Tempo.</dd>
+      <dt>Logs</dt><dd>Logback writes JSON to stdout (with <code>traceId</code>/<code>spanId</code>); Alloy tails pod logs from the node and ships to Loki.</dd>
+    </div>
+
+    <h2 id="config">How Services Are Wired</h2>
+<pre><code><span class="c"># every service's properties point at Alloy (K8s DNS)</span>
+management.tracing.sampling.probability=1.0
+management.otlp.tracing.endpoint=${OTEL_TRACES_ENDPOINT:http://alloy.observability.svc.cluster.local:4318/v1/traces}
+management.otlp.metrics.export.url=${OTEL_METRICS_ENDPOINT:http://alloy.observability.svc.cluster.local:4318/v1/metrics}
+
+<span class="c"># traceId/spanId injected into every log line for correlation</span>
+logging.pattern.level=%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]</code></pre>
+
+    <h2 id="dashboards">The Six Dashboards</h2>
+    <p>Dashboards are provisioned automatically from a ConfigMap, so they appear the moment Grafana starts.</p>
+    <table>
+      <thead><tr><th>Dashboard</th><th>What it shows</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Spring Boot Microservices</strong></td><td>Per-service heap, threads, CPU, request rate, latency. Service dropdown with multi-select &amp; "All".</td></tr>
+        <tr><td><strong>Slow API Tracker</strong></td><td>Endpoints exceeding a chosen threshold (10ms → 1s); P50/P95/P99 table.</td></tr>
+        <tr><td><strong>Error Tracker</strong></td><td>Errors in a selectable window (5m–3h); 4xx/5xx breakdown + live error logs.</td></tr>
+        <tr><td><strong>Service Health Overview</strong></td><td>Traffic-light UP/DOWN per service; one-page NOC view.</td></tr>
+        <tr><td><strong>Blue-Green Deployment</strong></td><td>Active vs preview metrics side by side during a rollout.</td></tr>
+        <tr><td><strong>Infrastructure / K8s</strong></td><td>Pod restarts, CPU/memory per pod, heap % of limit, GC overhead.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="create-dashboard">Creating a Dashboard</h2>
+    <div class="steps">
+      <div class="step"><h4>Open Explore</h4><p>Grafana → <strong>Explore</strong>, pick the Prometheus datasource, switch to <strong>Code</strong> mode.</p></div>
+      <div class="step"><h4>Write a query</h4><p>e.g. JVM heap used: <code>jvm_memory_used_bytes{app="employee", area="heap"}</code></p></div>
+      <div class="step"><h4>Add to dashboard</h4><p>Click <strong>Add to dashboard</strong> → New panel → choose a visualization (time series, stat, table).</p></div>
+      <div class="step"><h4>Make it reusable</h4><p>Add a dashboard variable <code>$service</code> = <code>label_values(jvm_memory_used_bytes, app)</code> with multi-select + "All", then use <code>app=~"$service"</code> in queries.</p></div>
+      <div class="step"><h4>Persist as code</h4><p>Export JSON → add it to the Grafana <code>grafana-dashboards</code> ConfigMap so it auto-provisions on restart.</p></div>
+    </div>
+
+    <h3>Handy PromQL</h3>
+<pre><code><span class="c"># request rate per second</span>
+sum(rate(http_server_requests_seconds_count{app="employee"}[1m]))
+<span class="c"># error rate %</span>
+100 * sum(rate(http_server_requests_seconds_count{app="employee",status=~"5.."}[1m]))
+    / sum(rate(http_server_requests_seconds_count{app="employee"}[1m]))
+<span class="c"># p95 latency (ms)</span>
+histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app="employee"}[5m]))) * 1000
+<span class="c"># heap % of limit</span>
+100 * jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}</code></pre>
+
+    <h2 id="correlate">Monitor, Trace &amp; Correlate a Flow</h2>
+    <div class="steps">
+      <div class="step"><h4>Generate traffic</h4><p>Hit <code>/employee/api/departments</code> (employee → department) a few times.</p></div>
+      <div class="step"><h4>Find a log</h4><p>Explore → Loki → <code>{namespace="microservices", app="employee"}</code>. Each line carries a <code>traceId</code>.</p></div>
+      <div class="step"><h4>Jump to the trace</h4><p>Click the <code>traceId</code> — Grafana opens the matching trace in Tempo, showing the full span tree (gateway → employee → department).</p></div>
+      <div class="step"><h4>Check the metrics</h4><p>Open the Spring Boot dashboard to see the request rate spike and the latency for those calls.</p></div>
+    </div>
+
+    <h2 id="compare">Comparison With Other Frameworks</h2>
+    <table>
+      <thead><tr><th>Stack</th><th>Logs</th><th>Metrics</th><th>Traces</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>LGTM + Alloy (this repo)</strong></td><td>Loki</td><td>Prometheus</td><td>Tempo</td><td>Open-source, one UI, cheap, single agent. <span class="pill green">Chosen</span></td></tr>
+        <tr><td>ELK / Elastic</td><td>Elasticsearch</td><td>Metricbeat</td><td>APM</td><td>Powerful full-text search; heavier &amp; costlier to run.</td></tr>
+        <tr><td>Jaeger (traces only)</td><td>—</td><td>—</td><td>Jaeger</td><td>Great tracing UI, but separate tools needed for logs/metrics. Tempo wins for Grafana-native correlation.</td></tr>
+        <tr><td>Datadog</td><td>✓</td><td>✓</td><td>✓</td><td>Best DX, but expensive SaaS; teams often migrate <em>off</em> it to LGTM at scale.</td></tr>
+        <tr><td>OTel Collector (vendor-neutral)</td><td>✓</td><td>✓</td><td>✓</td><td>CNCF standard; Alloy is the Grafana-native equivalent and was chosen for tighter Grafana integration.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <strong>Why Alloy over Promtail / OTel Collector?</strong>
+      Promtail is deprecated and logs-only; a standalone OTel Collector is vendor-neutral but needs more wiring.
+      Grafana Alloy is the actively-maintained successor that handles all three signals in one DaemonSet,
+      and it tails pod stdout automatically — so services need no in-process log appender.
+    </div>
+
+    <div class="page-nav">
+      <a href="config-server.html"><div class="dir">← Previous</div><div class="ttl">Config Server</div></a>
+      <a class="next" href="deployment.html"><div class="dir">Next →</div><div class="ttl">Deployment &amp; Blue-Green</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

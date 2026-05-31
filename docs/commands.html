@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Cheat Sheet — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav"></nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Reference</div>
+      <h1>Docker &amp; Kubernetes Cheat Sheet</h1>
+      <p class="lead">The commands worth memorising — grouped by task, with the project-specific ones
+        called out so you can drive this repo without hunting through docs.</p>
+    </div>
+
+    <div class="callout tip">
+      <strong>Set a default namespace</strong> so you can drop <code>-n microservices</code> from every command:
+      <code>kubectl config set-context --current --namespace=microservices</code>
+    </div>
+
+    <!-- ===================== DOCKER ===================== -->
+    <h2 id="docker">🐳 Docker</h2>
+
+    <h3>Images</h3>
+<pre><code>docker build -t user/app:tag .          <span class="c"># build from Dockerfile in current dir</span>
+docker images                           <span class="c"># list local images</span>
+docker tag user/app:tag user/app:latest <span class="c"># re-tag</span>
+docker rmi user/app:tag                 <span class="c"># remove an image</span>
+docker pull user/app:tag                <span class="c"># pull from registry</span>
+docker push user/app:tag                <span class="c"># push (needs docker login)</span>
+docker login                            <span class="c"># authenticate to Docker Hub</span></code></pre>
+
+    <h3>Containers</h3>
+<pre><code>docker ps                               <span class="c"># running containers</span>
+docker ps -a                            <span class="c"># all (incl. stopped)</span>
+docker run --rm -p 8080:8080 user/app:tag <span class="c"># run &amp; auto-remove on exit</span>
+docker exec -it &lt;container&gt; sh          <span class="c"># shell into a container</span>
+docker logs -f &lt;container&gt;              <span class="c"># follow logs</span>
+docker stop &lt;container&gt; ; docker rm &lt;container&gt;</code></pre>
+
+    <h3>Cleanup (reclaim disk)</h3>
+<pre><code>docker system df                        <span class="c"># what's using space</span>
+docker image prune                      <span class="c"># dangling images</span>
+docker system prune -a                  <span class="c"># EVERYTHING unused (careful)</span>
+docker builder prune                    <span class="c"># build cache</span></code></pre>
+
+    <div class="callout warn">
+      <strong>Project build/push:</strong> handled by <code>make build</code> / <code>make push</code>.
+      Push targets the <code>dayasahu6077/*</code> namespace — see
+      <a href="setup.html#registry">Docker Hub &amp; Registry Login</a> to use your own account.
+    </div>
+
+    <!-- ===================== KUBECTL BASICS ===================== -->
+    <h2 id="kubectl">☸️ kubectl — Everyday</h2>
+
+    <h3>Context &amp; cluster</h3>
+<pre><code>kubectl config get-contexts             <span class="c"># list contexts</span>
+kubectl config use-context docker-desktop
+kubectl cluster-info
+kubectl get nodes -o wide</code></pre>
+
+    <h3>Inspecting resources</h3>
+<pre><code>kubectl get pods -n microservices               <span class="c"># list pods</span>
+kubectl get pods -A                             <span class="c"># all namespaces</span>
+kubectl get pods -o wide                         <span class="c"># + node &amp; IP</span>
+kubectl get all -n microservices                <span class="c"># pods/svc/deploy/rs</span>
+kubectl get svc,ingress -n microservices
+kubectl describe pod &lt;pod&gt; -n microservices      <span class="c"># events &amp; details</span>
+kubectl get pod &lt;pod&gt; -o yaml                    <span class="c"># full manifest</span>
+kubectl get events -n microservices --sort-by=.lastTimestamp</code></pre>
+
+    <h3>Logs &amp; exec</h3>
+<pre><code>kubectl logs -f &lt;pod&gt; -n microservices                  <span class="c"># follow logs</span>
+kubectl logs &lt;pod&gt; --previous                           <span class="c"># crashed container's logs</span>
+kubectl logs -l app=employee --all-containers -n microservices
+kubectl exec -it &lt;pod&gt; -n microservices -- sh          <span class="c"># shell in</span>
+kubectl exec &lt;pod&gt; -n microservices -- env             <span class="c"># dump env vars</span></code></pre>
+
+    <h3>Apply / delete</h3>
+<pre><code>kubectl apply -f manifest.yaml          <span class="c"># single file</span>
+kubectl apply -k .                      <span class="c"># Kustomize dir (this repo's root)</span>
+kubectl delete -k .                     <span class="c"># delete what Kustomize created</span>
+kubectl delete pod &lt;pod&gt; -n microservices               <span class="c"># pod is recreated by its controller</span>
+kubectl rollout restart deployment/employee -n microservices</code></pre>
+
+    <!-- ===================== DEPLOYMENTS ===================== -->
+    <h2 id="workloads">Workloads &amp; Scaling</h2>
+<pre><code>kubectl get deploy -n microservices
+kubectl rollout status deployment/apigateway -n microservices
+kubectl rollout history deployment/apigateway -n microservices
+kubectl rollout undo deployment/apigateway -n microservices    <span class="c"># roll back a Deployment</span>
+kubectl scale deployment/apigateway --replicas=3 -n microservices
+kubectl set image deployment/apigateway apigateway=user/img:tag -n microservices
+kubectl autoscale deployment/employee --min=2 --max=8 --cpu-percent=70  <span class="c"># HPA</span></code></pre>
+
+    <div class="callout info">
+      <strong>employee &amp; department are Argo Rollouts, not Deployments</strong> — the
+      <code>kubectl rollout … deployment/…</code> commands above do <em>not</em> apply to them.
+      Use the Argo Rollouts commands below.
+    </div>
+
+    <!-- ===================== ARGO ROLLOUTS ===================== -->
+    <h2 id="argo">🚀 Argo Rollouts (blue-green)</h2>
+<pre><code>kubectl argo rollouts list rollouts -n microservices
+kubectl argo rollouts get rollout employee -n microservices --watch   <span class="c"># live view</span>
+kubectl argo rollouts set image employee employee=user/img:tag -n microservices
+kubectl argo rollouts promote employee -n microservices               <span class="c"># green → active</span>
+kubectl argo rollouts status employee -n microservices --timeout=180s
+kubectl argo rollouts abort employee -n microservices                 <span class="c"># stop a bad rollout</span>
+kubectl argo rollouts undo employee -n microservices                  <span class="c"># roll back to blue</span></code></pre>
+
+    <!-- ===================== CONFIG / SECRETS ===================== -->
+    <h2 id="config">ConfigMaps &amp; Secrets</h2>
+<pre><code>kubectl get configmap -n microservices
+kubectl describe configmap employee-config -n microservices
+kubectl get secret jwt-secret -n microservices -o jsonpath="{.data.JWT_SECRET}" | base64 -d  <span class="c"># decode</span>
+kubectl create secret generic my-secret --from-literal=KEY=value -n microservices
+kubectl create configmap my-cm --from-file=app.properties -n microservices</code></pre>
+
+    <!-- ===================== NETWORKING ===================== -->
+    <h2 id="networking">Networking &amp; Access</h2>
+<pre><code>kubectl get ingress -A
+kubectl get svc -n observability                          <span class="c"># find NodePorts</span>
+kubectl port-forward svc/grafana 3000:3000 -n observability   <span class="c"># tunnel a ClusterIP service</span>
+kubectl get endpoints employee -n microservices           <span class="c"># is the service wired to pods?</span>
+<span class="c"># DNS test from inside a pod:</span>
+kubectl exec &lt;pod&gt; -n microservices -- wget -qO- http://department/api/list</code></pre>
+
+    <div class="callout danger">
+      <strong>Empty endpoints?</strong> If <code>kubectl get endpoints &lt;svc&gt;</code> shows
+      <code>&lt;none&gt;</code>, the Service selector doesn't match any pod labels — the #1 cause of
+      "service exists but 502/timeout".
+    </div>
+
+    <!-- ===================== DEBUGGING ===================== -->
+    <h2 id="debug">Debugging Playbook</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Command to run</th></tr></thead>
+      <tbody>
+        <tr><td>Pod won't start / CrashLoopBackOff</td><td><code>kubectl logs &lt;pod&gt; --previous</code> + <code>kubectl describe pod &lt;pod&gt;</code></td></tr>
+        <tr><td>Pending pod</td><td><code>kubectl describe pod &lt;pod&gt;</code> → check Events (resources / scheduling)</td></tr>
+        <tr><td>Service returns errors</td><td><code>kubectl get endpoints &lt;svc&gt;</code> → must list pod IPs</td></tr>
+        <tr><td>Config not applied</td><td><code>kubectl exec &lt;pod&gt; -- env</code> → verify env vars</td></tr>
+        <tr><td>Image not updating</td><td>check <code>imagePullPolicy</code>; for local images use <code>IfNotPresent</code></td></tr>
+        <tr><td>Rollout stuck</td><td><code>kubectl argo rollouts get rollout &lt;name&gt; --watch</code></td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== KUSTOMIZE ===================== -->
+    <h2 id="kustomize">Kustomize</h2>
+<pre><code>kubectl kustomize .                     <span class="c"># render manifests without applying</span>
+kubectl apply -k .                      <span class="c"># build + apply</span>
+kubectl apply -k observability/k8       <span class="c"># the observability stack</span>
+kubectl diff -k .                       <span class="c"># preview changes vs cluster</span></code></pre>
+
+    <!-- ===================== PROJECT ===================== -->
+    <h2 id="project">This Project — Quick Reference</h2>
+    <table>
+      <thead><tr><th>Make target</th><th>Equivalent</th></tr></thead>
+      <tbody>
+        <tr><td><code>make bootstrap</code></td><td>Install NGINX Ingress, Argo Rollouts, K8s Dashboard (once)</td></tr>
+        <tr><td><code>make up</code></td><td>obs-up → build → push → deploy → ingress</td></tr>
+        <tr><td><code>make status</code></td><td><code>kubectl get pods,svc,ingress</code> in both namespaces</td></tr>
+        <tr><td><code>make logs</code></td><td>tail all service logs by shared label</td></tr>
+        <tr><td><code>make down</code></td><td>delete app + both namespaces</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Access</th><th>URL</th></tr></thead>
+      <tbody>
+        <tr><td>APIs</td><td><code>http://api.myorg.com</code></td></tr>
+        <tr><td>Grafana</td><td><code>http://grafana.myorg.com</code> · <code>:30300</code></td></tr>
+        <tr><td>Prometheus</td><td><code>http://prometheus.myorg.com</code> · <code>:30900</code></td></tr>
+        <tr><td>K8s Dashboard</td><td><code>https://localhost:30443</code> (token: <code>kubectl -n kubernetes-dashboard create token admin-user</code>)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="page-nav">
+      <a href="api-reference.html"><div class="dir">← Previous</div><div class="ttl">API Reference</div></a>
+      <a class="next" href="troubleshooting.html"><div class="dir">Next →</div><div class="ttl">Troubleshooting &amp; FAQ</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

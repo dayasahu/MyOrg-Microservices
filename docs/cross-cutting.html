@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross-Cutting Concerns — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Architecture</div>
+      <h1>Cross-Cutting Concerns</h1>
+      <p class="lead">Every distributed system must solve the same recurring problems. Here is exactly
+        which concern this repo addresses, and the concrete mechanism it uses.</p>
+    </div>
+
+    <p>"Cross-cutting concerns" are responsibilities that span <em>all</em> services rather than belonging
+       to any single one — configuration, security, routing, resilience, observability and deployment.
+       Solving them once, consistently, is what separates a pile of services from a platform.</p>
+
+    <table>
+      <thead><tr><th>Concern</th><th>Solution in this repo</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Centralized Configuration</strong></td><td>Spring Cloud Config Server (native mode) + Kubernetes ConfigMaps via Kustomize</td><td><code>configserver/</code>, <code>config-map-k8/</code></td></tr>
+        <tr><td><strong>Routing / Single Entry Point</strong></td><td>Spring Cloud Gateway with path predicates &amp; <code>StripPrefix</code></td><td><code>ms-api-gateway/</code></td></tr>
+        <tr><td><strong>Authentication / Authorization</strong></td><td>Dedicated auth-service issues HS256 JWT; gateway global filter validates</td><td><code>auth-service/</code>, gateway <code>JwtAuthenticationFilter</code></td></tr>
+        <tr><td><strong>Service Discovery</strong></td><td>Kubernetes DNS — services reach each other by name (<code>http://department</code>)</td><td>K8s <code>Service</code> objects</td></tr>
+        <tr><td><strong>Resilience / Health</strong></td><td>Actuator liveness &amp; readiness probes wired into K8s</td><td>each <code>deployment.yaml</code> / <code>rollout.yaml</code></td></tr>
+        <tr><td><strong>Observability</strong></td><td>OpenTelemetry → Grafana Alloy → Loki / Tempo / Prometheus → Grafana</td><td><code>observability/k8/</code></td></tr>
+        <tr><td><strong>Distributed Tracing</strong></td><td>Micrometer Tracing + OTLP; <code>traceId</code>/<code>spanId</code> in every log line</td><td>all services' <code>logging.pattern.level</code></td></tr>
+        <tr><td><strong>Deployment / Zero Downtime</strong></td><td>Argo Rollouts blue-green with pre-promotion analysis</td><td><code>*/k8/rollout.yaml</code></td></tr>
+        <tr><td><strong>Secrets Management</strong></td><td>Kubernetes Secret (<code>jwt-secret</code>) injected as env var</td><td><code>auth-service/k8/secret.yaml</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="config">Configuration</h2>
+    <p>Instead of baking config into each image, all runtime properties live in a central place.
+       The Config Server reads <code>.properties</code> files (mounted from ConfigMaps) and serves them
+       to each service at startup based on its <code>SPRING_APPLICATION_NAME</code>.</p>
+    <div class="callout tip"><strong>Why it matters:</strong> one place to change a port, a route, or an
+      OTLP endpoint — no rebuild required. See the <a href="config-server.html">Config Server</a> page.</div>
+
+    <h2 id="security">Security</h2>
+    <p>Authentication is centralized at the edge. The auth-service mints tokens; the gateway is the
+       single chokepoint that verifies them. Downstream services trust the gateway and stay simple.</p>
+<pre><code><span class="c">// Gateway: JWT validated for everything except /auth/**</span>
+<span class="k">if</span> (path.startsWith(<span class="s">"/auth"</span>)) <span class="k">return</span> chain.filter(exchange);  <span class="c">// whitelist</span>
+<span class="c">// else require a valid Bearer token or return 401</span></code></pre>
+
+    <h2 id="discovery">Service Discovery</h2>
+    <p>No Eureka or Consul needed — Kubernetes provides DNS-based discovery out of the box. A service
+       named <code>department</code> is reachable cluster-wide at <code>http://department</code>. The
+       employee service relies on exactly this:</p>
+<pre><code><span class="c">// employee → department, by service name</span>
+webClient.get().uri(<span class="s">"http://department/api/list"</span>) ...</code></pre>
+
+    <h2 id="resilience">Resilience &amp; Health</h2>
+    <p>Each pod exposes Spring Boot Actuator health groups, wired into Kubernetes probes:</p>
+    <div class="grid grid-2">
+      <div class="card"><h4>Liveness</h4><p><code>/actuator/health/liveness</code> — if this fails, K8s restarts the pod.</p></div>
+      <div class="card"><h4>Readiness</h4><p><code>/actuator/health/readiness</code> — if this fails, K8s stops sending it traffic.</p></div>
+    </div>
+
+    <h2 id="observability">Observability</h2>
+    <p>Every service is instrumented with OpenTelemetry. Traces and metrics are pushed over OTLP to
+       Grafana Alloy, which also tails container stdout for logs. The shared <code>traceId</code> in
+       each log line lets you jump from a log straight to its full trace. Full details on the
+       <a href="observability.html">Observability</a> page.</p>
+
+    <div class="page-nav">
+      <a href="structure.html"><div class="dir">← Previous</div><div class="ttl">Repository Map</div></a>
+      <a class="next" href="patterns.html"><div class="dir">Next →</div><div class="ttl">Design Patterns</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

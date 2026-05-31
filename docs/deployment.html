@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment &amp; Blue-Green — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Operations</div>
+      <h1>Deployment Patterns &amp; Blue-Green</h1>
+      <p class="lead">How the platform ships changes with zero downtime — and the exact Argo Rollouts
+        configuration that makes it safe.</p>
+    </div>
+
+    <h2 id="strategies">Two Strategies in One Repo</h2>
+    <table>
+      <thead><tr><th>Strategy</th><th>Used by</th><th>Manifest</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill blue">Rolling Update</span> (K8s default)</td><td>apigateway, auth-service, configserver</td><td><code>deployment.yaml</code></td><td>Internal/infra services; brief overlap acceptable</td></tr>
+        <tr><td><span class="pill green">Blue-Green</span> (Argo Rollouts)</td><td>employee, department</td><td><code>rollout.yaml</code></td><td>User-facing APIs; need zero downtime + preview testing</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <strong>One controller per workload.</strong> A service uses <em>either</em> a <code>Deployment</code>
+      <em>or</em> a <code>Rollout</code> — never both, or the two controllers fight over the same pods.
+    </div>
+
+    <h2 id="bluegreen">How Blue-Green Works Here</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#5b6678"/></marker>
+        <style>.l{font-size:12px;fill:#1f2733;font-weight:600}.s{font-size:10px;fill:#5b6678}.w{fill:#fff}</style></defs>
+
+        <!-- before -->
+        <text x="150" y="28" text-anchor="middle" class="l">1 · Deploy green (blue still live)</text>
+        <rect x="40" y="50" width="100" height="40" rx="8" fill="#2657c9"/><text x="90" y="75" text-anchor="middle" class="l w">BLUE v1</text>
+        <rect x="170" y="50" width="100" height="40" rx="8" fill="#1ea672"/><text x="220" y="75" text-anchor="middle" class="l w">GREEN v2</text>
+        <rect x="40" y="110" width="100" height="34" rx="8" fill="#eef1f8" stroke="#cfd6e6"/><text x="90" y="132" text-anchor="middle" class="s">active svc</text>
+        <rect x="170" y="110" width="100" height="34" rx="8" fill="#eef1f8" stroke="#cfd6e6"/><text x="220" y="132" text-anchor="middle" class="s">preview svc</text>
+        <line x1="90" y1="110" x2="90" y2="92" stroke="#2657c9" stroke-width="2" marker-end="url(#a)"/>
+        <line x1="220" y1="110" x2="220" y2="92" stroke="#1ea672" stroke-width="2" marker-end="url(#a)"/>
+        <text x="90" y="166" text-anchor="middle" class="s">users →</text>
+        <text x="220" y="166" text-anchor="middle" class="s">tests →</text>
+
+        <!-- analysis -->
+        <text x="460" y="28" text-anchor="middle" class="l">2 · Pre-promotion analysis</text>
+        <rect x="360" y="50" width="200" height="94" rx="10" fill="#fff7e8" stroke="#f0d59a"/>
+        <text x="460" y="76" text-anchor="middle" class="l">smoke-test AnalysisRun</text>
+        <text x="460" y="96" text-anchor="middle" class="s">GET preview /actuator/health/readiness</text>
+        <text x="460" y="113" text-anchor="middle" class="s">×3, 10s apart, must = "UP"</text>
+        <text x="460" y="132" text-anchor="middle" class="s">fail → rollout aborts, blue stays</text>
+
+        <!-- promote -->
+        <text x="760" y="28" text-anchor="middle" class="l">3 · Promote (flip)</text>
+        <rect x="690" y="50" width="100" height="40" rx="8" fill="#1ea672"/><text x="740" y="75" text-anchor="middle" class="l w">GREEN v2</text>
+        <rect x="690" y="110" width="100" height="34" rx="8" fill="#eef1f8" stroke="#cfd6e6"/><text x="740" y="132" text-anchor="middle" class="s">active svc</text>
+        <line x1="740" y1="110" x2="740" y2="92" stroke="#1ea672" stroke-width="2" marker-end="url(#a)"/>
+        <text x="740" y="166" text-anchor="middle" class="s">all users → v2</text>
+        <text x="740" y="184" text-anchor="middle" class="s">blue kept 30s for instant rollback</text>
+
+        <!-- bottom: manual promote -->
+        <rect x="40" y="230" width="810" height="110" rx="12" fill="#f7f8fc" stroke="#e3e7ef"/>
+        <text x="60" y="258" class="l">Key safety properties (rollout.yaml)</text>
+        <text x="60" y="284" class="s">• autoPromotionEnabled: false  → pipeline must explicitly run "kubectl argo rollouts promote"</text>
+        <text x="60" y="304" class="s">• prePromotionAnalysis  → smoke test must pass before promotion is even allowed</text>
+        <text x="60" y="324" class="s">• scaleDownDelaySeconds: 30  → blue pods linger 30s so rollback is instant</text>
+      </svg>
+      <div class="caption">Figure 5 — Blue-green lifecycle: deploy green → analyse on preview → flip active service → keep blue briefly for rollback.</div>
+    </div>
+
+    <h2 id="rollout">The Rollout Manifest</h2>
+<pre><code><span class="c"># employee/k8/rollout.yaml (strategy section)</span>
+strategy:
+  blueGreen:
+    activeService: employee            <span class="c"># live traffic (blue)</span>
+    previewService: employee-preview   <span class="c"># new version under test (green)</span>
+    autoPromotionEnabled: <span class="k">false</span>       <span class="c"># never auto-flip</span>
+    prePromotionAnalysis:
+      templates:
+        - templateName: smoke-test     <span class="c"># must pass before promotion</span>
+      args:
+        - name: preview-url
+          value: http://employee-preview.microservices.svc.cluster.local:8080
+    scaleDownDelaySeconds: <span class="n">30</span>           <span class="c"># keep blue 30s for instant rollback</span></code></pre>
+
+    <h3>The AnalysisTemplate (automated smoke test)</h3>
+<pre><code><span class="c"># employee/k8/analysis-template.yaml</span>
+kind: AnalysisTemplate
+metadata: { name: smoke-test }
+spec:
+  metrics:
+    - name: health-check
+      count: <span class="n">3</span>                       <span class="c"># run 3 times</span>
+      interval: 10s                   <span class="c"># 10s apart</span>
+      failureLimit: <span class="n">1</span>
+      successCondition: result == <span class="s">"UP"</span>
+      provider:
+        web:
+          url: <span class="s">"{{args.preview-url}}/actuator/health/readiness"</span>
+          jsonPath: <span class="s">"{$.status}"</span></code></pre>
+
+    <h2 id="preview">Active vs Preview Services</h2>
+    <p>Argo Rollouts manages the <code>pod-template-hash</code> selector on two services so traffic is
+       routed correctly without you touching selectors:</p>
+    <div class="grid grid-2">
+      <div class="card"><h4><code>employee</code> (active)</h4><p>Points at the <strong>stable</strong> ReplicaSet — real user traffic.</p></div>
+      <div class="card"><h4><code>employee-preview</code> (preview)</h4><p>Points at the <strong>new</strong> ReplicaSet — where smoke tests and manual checks run.</p></div>
+    </div>
+
+    <h2 id="commands">Operating a Rollout</h2>
+<pre><code><span class="c"># watch the rollout</span>
+kubectl argo rollouts get rollout employee -n microservices --watch
+
+<span class="c"># set the new image (kicks off green)</span>
+kubectl argo rollouts set image employee employee=dayasahu6077/employee:&lt;sha&gt; -n microservices
+
+<span class="c"># promote green → active (after analysis passes)</span>
+kubectl argo rollouts promote employee -n microservices
+
+<span class="c"># instant rollback</span>
+kubectl argo rollouts abort employee -n microservices
+kubectl argo rollouts undo  employee -n microservices</code></pre>
+
+    <h2 id="honest">What Blue-Green Does &amp; Doesn't Guarantee</h2>
+    <div class="grid grid-2">
+      <div class="card"><h4>✅ Guarantees</h4><ul><li>Zero downtime during the switch</li><li>New version tested on preview before going live</li><li>Instant rollback (blue kept 30s)</li></ul></div>
+      <div class="card"><h4>⚠️ Does not guarantee</h4><ul><li>Bug-free release — synthetic tests can't cover every edge case</li><li>Real production load behaviour (green sees no real traffic pre-promotion)</li></ul></div>
+    </div>
+    <div class="callout info">
+      <strong>The real safety net is fast rollback, not perfect testing.</strong>
+      For higher confidence, layer canary traffic shifting (also supported by Argo Rollouts) and
+      feature flags on top — promote the code dark, then ramp real users 1% → 100%.
+    </div>
+
+    <div class="page-nav">
+      <a href="observability.html"><div class="dir">← Previous</div><div class="ttl">Observability</div></a>
+      <a class="next" href="cicd.html"><div class="dir">Next →</div><div class="ttl">CI/CD &amp; Argo</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

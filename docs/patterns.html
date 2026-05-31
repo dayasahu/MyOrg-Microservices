@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Patterns — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-group-title">Getting Started</div>
+        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
+        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a></div>
+      <div class="nav-group"><div class="nav-group-title">Architecture</div>
+        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
+        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
+        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
+        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a></div>
+      <div class="nav-group"><div class="nav-group-title">Operations</div>
+        <a href="observability.html"><span class="ic">📊</span> Observability</a>
+        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
+        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
+        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a></div>
+    </nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Architecture</div>
+      <h1>Design Patterns &amp; Rationale</h1>
+      <p class="lead">Each pattern below is used deliberately. For every one: what it is, why it was
+        chosen here, and what the alternatives were.</p>
+    </div>
+
+    <h2 id="gateway">API Gateway Pattern</h2>
+    <div class="card">
+      <p><strong>What:</strong> A single entry point (<code>ms-api-gateway</code>) sits in front of all
+        services, handling routing, cross-cutting auth, and prefix stripping.</p>
+      <p><strong>Why here:</strong> Clients need one URL, not five. Auth is enforced once at the edge so
+        downstream services stay simple. Routing rules live in config, not code.</p>
+      <p><strong>Alternatives considered:</strong></p>
+      <ul>
+        <li><span class="pill gray">Client-side routing</span> — every client must know every service URL. Brittle, leaks topology.</li>
+        <li><span class="pill gray">Dedicated gateway product (Kong, APISIX)</span> — powerful but heavier; Spring Cloud Gateway integrates natively with the Spring stack.</li>
+        <li><span class="pill blue">Spring Cloud Gateway ✓</span> — reactive, code-light, routes defined as properties served by the config server.</li>
+      </ul>
+    </div>
+
+    <h2 id="externalized">Externalized Configuration Pattern</h2>
+    <div class="card">
+      <p><strong>What:</strong> Configuration is pulled from a central Config Server at startup, not baked
+        into images.</p>
+      <p><strong>Why here:</strong> The same image promotes unchanged from dev → prod; only the served
+        config differs. Ports, routes and OTLP endpoints change without a rebuild.</p>
+      <p><strong>Alternatives:</strong></p>
+      <ul>
+        <li><span class="pill gray">Config baked in JAR</span> — requires a rebuild for any change.</li>
+        <li><span class="pill gray">Pure ConfigMaps as env vars</span> — works, but no Spring refresh, no single source for all services.</li>
+        <li><span class="pill blue">Spring Cloud Config (native) ✓</span> — Spring-native, supports <code>/actuator/refresh</code>, backed by ConfigMaps in-cluster.</li>
+      </ul>
+    </div>
+
+    <h2 id="token">Token-Based Authentication (JWT)</h2>
+    <div class="card">
+      <p><strong>What:</strong> Stateless HS256 JWTs minted by the auth-service, verified at the gateway.</p>
+      <p><strong>Why here:</strong> Stateless means no session store; any gateway replica can validate any
+        token using the shared secret. Downstream services never see auth logic.</p>
+      <p><strong>Alternatives:</strong></p>
+      <ul>
+        <li><span class="pill gray">Session cookies + shared store</span> — stateful, needs sticky sessions or Redis.</li>
+        <li><span class="pill gray">OAuth2 / OIDC provider (Keycloak)</span> — the production-grade choice; heavier to run for a training system.</li>
+        <li><span class="pill blue">Self-issued JWT ✓</span> — minimal, demonstrates the validation flow clearly.</li>
+      </ul>
+    </div>
+
+    <h2 id="sidecar-collector">Single Collector / Agent Pattern</h2>
+    <div class="card">
+      <p><strong>What:</strong> Services push telemetry to one endpoint (Grafana Alloy) rather than knowing
+        about Loki, Tempo and Prometheus individually.</p>
+      <p><strong>Why here:</strong> Decouples producers from backends. Swap Tempo for Jaeger and not one
+        service changes — only Alloy's config does.</p>
+      <p><strong>Alternatives:</strong></p>
+      <ul>
+        <li><span class="pill gray">Each service writes to each backend</span> — tight coupling, repeated config everywhere.</li>
+        <li><span class="pill gray">Promtail (logs only)</span> — deprecated, and only solves logs.</li>
+        <li><span class="pill blue">Grafana Alloy DaemonSet ✓</span> — one agent for logs + traces + metrics, the actively-maintained successor to Promtail and the Grafana Agent.</li>
+      </ul>
+    </div>
+
+    <h2 id="bluegreen">Blue-Green Deployment Pattern</h2>
+    <div class="card">
+      <p><strong>What:</strong> Two versions exist briefly — "blue" (live) and "green" (new). Traffic flips
+        only after the green version passes analysis.</p>
+      <p><strong>Why here:</strong> Zero downtime and instant rollback. The new version is fully tested on a
+        preview service before any user sees it.</p>
+      <p><strong>Alternatives:</strong></p>
+      <ul>
+        <li><span class="pill gray">Rolling update (default K8s)</span> — simple, but users hit a mix of old + new during rollout, and rollback is slow.</li>
+        <li><span class="pill gray">Canary</span> — great for gradual traffic shifting; more moving parts. Argo Rollouts supports it too.</li>
+        <li><span class="pill blue">Blue-Green (Argo Rollouts) ✓</span> — clean all-or-nothing switch with automated pre-promotion smoke analysis. See <a href="deployment.html">Deployment</a>.</li>
+      </ul>
+    </div>
+
+    <h2 id="sidecar-config">Config-as-Volume (ConfigMap mount) Pattern</h2>
+    <div class="card">
+      <p><strong>What:</strong> The Config Server reads property files from ConfigMaps mounted as
+        read-only volumes at <code>/config/{service}</code>.</p>
+      <p><strong>Why here:</strong> Kustomize generates the ConfigMaps from plain <code>.properties</code>
+        files with dev/prod overlays — config is reviewable in Git and environment-specific.</p>
+    </div>
+
+    <hr class="soft">
+    <div class="callout info">
+      <strong>Pattern selection principle used throughout:</strong>
+      prefer the <em>Spring-native, Kubernetes-native</em> option that keeps services thin and pushes
+      cross-cutting logic to the platform layer — only reaching for heavier external products when scale
+      genuinely demands it.
+    </div>
+
+    <div class="page-nav">
+      <a href="cross-cutting.html"><div class="dir">← Previous</div><div class="ttl">Cross-Cutting Concerns</div></a>
+      <a class="next" href="gateway.html"><div class="dir">Next →</div><div class="ttl">API Gateway</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

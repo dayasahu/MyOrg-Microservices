@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Troubleshooting &amp; FAQ — MyOrg Platform</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle">☰</button>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><h1><span class="logo">⬡</span> MyOrg Platform</h1><p>Microservices · Kubernetes · Observability</p></div>
+    <nav class="nav"></nav>
+  </aside>
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Reference</div>
+      <h1>Troubleshooting &amp; FAQ</h1>
+      <p class="lead">The real problems you'll hit running this platform locally — each with the cause
+        and the exact fix.</p>
+    </div>
+
+    <h2 id="networking">Networking &amp; Services</h2>
+
+    <h3><code>host.docker.internal</code> connection refused from a pod</h3>
+    <p><strong>Cause:</strong> <code>host.docker.internal</code> resolves from Docker containers but
+       <em>not</em> from inside Kubernetes pods.</p>
+    <p><strong>Fix:</strong> use Kubernetes DNS (<code>alloy.observability.svc.cluster.local</code>) or the
+       real machine IP — never <code>host.docker.internal</code> in pod env vars.</p>
+
+    <h3>Service exists but returns 502 / times out — endpoints <code>&lt;none&gt;</code></h3>
+    <p><strong>Cause:</strong> the Service selector doesn't match any pod labels. With Argo Rollouts this
+       often happens when the active Service still carries an old <code>rollouts-pod-template-hash</code>.</p>
+<pre><code>kubectl get endpoints employee -n microservices    <span class="c"># &lt;none&gt; = no matching pods</span>
+kubectl get pod &lt;pod&gt; --show-labels -n microservices
+kubectl get svc employee -o jsonpath="{.spec.selector}" -n microservices</code></pre>
+    <p><strong>Fix:</strong> let Argo manage it — <code>kubectl argo rollouts promote employee</code> re-points
+       the active Service at the current ReplicaSet. Don't hand-edit the selector.</p>
+
+    <h2 id="deploy">Deployments &amp; Rollouts</h2>
+
+    <h3>"deployments.apps employee not found"</h3>
+    <p><strong>Cause:</strong> <code>employee</code> and <code>department</code> are Argo <strong>Rollouts</strong>,
+       not Deployments. <code>kubectl set image deployment/employee</code> /
+       <code>rollout status deployment/employee</code> won't find them.</p>
+    <p><strong>Fix:</strong> use the rollouts plugin:</p>
+<pre><code>kubectl argo rollouts set image employee employee=user/img:tag -n microservices
+kubectl argo rollouts status employee -n microservices</code></pre>
+
+    <h3>Rollout stuck — status <code>Paused / BlueGreenPause</code></h3>
+    <p><strong>Cause:</strong> this is expected. With <code>autoPromotionEnabled: false</code> the green
+       version waits for a manual promotion after the smoke analysis passes.</p>
+<pre><code>kubectl argo rollouts get rollout employee -n microservices --watch
+kubectl argo rollouts promote employee -n microservices   <span class="c"># flip green → active</span></code></pre>
+
+    <h3>Old pods keep coming back / multiple versions running</h3>
+    <p><strong>Cause:</strong> leftover ReplicaSets from a controller switch (e.g. a Deployment and a
+       Rollout both managing <code>employee</code>).</p>
+    <p><strong>Fix:</strong> use only <em>one</em> controller per workload. Delete the stale Deployment, let
+       the Rollout own the pods, then remove orphaned ReplicaSets:</p>
+<pre><code>kubectl delete deployment employee -n microservices --ignore-not-found
+kubectl get rs -n microservices -l app=employee</code></pre>
+
+    <h2 id="images">Images</h2>
+
+    <h3><code>403 denied</code> on <code>docker push</code></h3>
+    <p><strong>Cause:</strong> the images target <code>dayasahu6077/*</code> — you don't have write access.</p>
+    <p><strong>Fix:</strong> retag to your own Docker Hub namespace, or skip push and use local images.
+       See <a href="setup.html#registry">Docker Hub &amp; Registry Login</a>.</p>
+
+    <h3>Code changed but the pod runs the old image</h3>
+    <p><strong>Cause:</strong> <code>imagePullPolicy: Always</code> forces a registry pull, ignoring your
+       freshly built local image.</p>
+    <p><strong>Fix:</strong> for local iteration set <code>imagePullPolicy: IfNotPresent</code> on the
+       workload so it uses the local image.</p>
+
+    <h2 id="observability">Observability</h2>
+
+    <h3><code>make obs-up</code> hangs / "deployments.apps otel-collector not found"</h3>
+    <p><strong>Cause:</strong> the OTel Collector was replaced by the <strong>Grafana Alloy DaemonSet</strong>.
+       An old target waited for the now-deleted deployment.</p>
+    <p><strong>Fix:</strong> already corrected — <code>obs-up</code> now waits for
+       <code>daemonset/alloy</code>. If you see this, pull the latest <code>Makefile</code>.</p>
+
+    <h3>No logs in Loki / Grafana Explore is empty</h3>
+    <p><strong>Cause:</strong> Alloy needs RBAC to read pod logs, or it started before the services.</p>
+<pre><code>kubectl logs daemonset/alloy -n observability --tail=20      <span class="c"># look for "forbidden: pods/log"</span>
+kubectl exec deploy/loki -n observability -- wget -qO- http://localhost:3100/loki/api/v1/labels</code></pre>
+    <p><strong>Fix:</strong> ensure the Alloy ClusterRole grants <code>pods/log</code>, then
+       <code>kubectl rollout restart daemonset/alloy -n observability</code>.</p>
+
+    <h3>Tempo "connection refused" right after startup</h3>
+    <p><strong>Cause / Fix:</strong> transient — Tempo's gRPC listener starts after HTTP. It resolves on its
+       own within a few seconds; no action needed.</p>
+
+    <h3>Prometheus "out of order sample"</h3>
+    <p><strong>Cause / Fix:</strong> transient after a restart when duplicate samples arrive. Self-heals in a
+       few minutes.</p>
+
+    <h2 id="auth">Auth &amp; Config</h2>
+
+    <h3>401 Unauthorized through the gateway</h3>
+    <p><strong>Cause:</strong> missing or invalid <code>Authorization: Bearer</code> token. Only
+       <code>/auth/**</code> is whitelisted.</p>
+    <p><strong>Fix:</strong> get a token from <code>POST /auth/token</code> and send it on every other call.
+       Token expiry is 24h.</p>
+
+    <h3>Service starts but config values are missing</h3>
+    <p><strong>Cause:</strong> the Config Server serves properties keyed by
+       <code>SPRING_APPLICATION_NAME</code>. If it doesn't match the <code>.properties</code> filename,
+       nothing is found.</p>
+<pre><code>kubectl exec &lt;pod&gt; -n microservices -- env | grep SPRING_APPLICATION_NAME
+<span class="c"># must match the file basename, e.g. employee → employee.properties</span></code></pre>
+
+    <h2 id="dashboard">Kubernetes Dashboard</h2>
+    <h3>Browser warns about an invalid certificate</h3>
+    <p><strong>Cause / Fix:</strong> the dashboard uses a self-signed cert. Expected on
+       <code>https://localhost:30443</code> — proceed past the warning.</p>
+    <h3>Login needs a token</h3>
+<pre><code>kubectl -n kubernetes-dashboard create token admin-user   <span class="c"># short-lived</span>
+<span class="c"># static token: see Setup → Kubernetes Dashboard + Static Token</span></code></pre>
+
+    <h2 id="faq">Quick FAQ</h2>
+    <div class="kvs">
+      <dt>Do I need Maven/JDK?</dt><dd>No — the Dockerfile builds the jar. Only needed for building outside Docker (<code>mvnw.cmd</code>).</dd>
+      <dt>Do I need to push images?</dt><dd>Not for local dev — Docker Desktop's K8s sees local images (set <code>imagePullPolicy: IfNotPresent</code>).</dd>
+      <dt>Where are the gateway routes?</dt><dd><code>config-map-k8/apigateway/base/apigateway.properties</code>.</dd>
+      <dt>Why two namespaces?</dt><dd><code>microservices</code> for apps, <code>observability</code> for the LGTM stack — clean blast-radius separation.</dd>
+      <dt>Is the data persistent?</dt><dd>No — services use in-memory H2 and observability uses <code>emptyDir</code>. Restarts lose data (fine for a training setup).</dd>
+    </div>
+
+    <div class="page-nav">
+      <a href="commands.html"><div class="dir">← Previous</div><div class="ttl">Command Cheat Sheet</div></a>
+      <a class="next" href="index.html"><div class="dir">Back to start →</div><div class="ttl">Overview &amp; Architecture</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

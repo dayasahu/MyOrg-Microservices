@@ -1,0 +1,39 @@
+# Maven
+target/
+*.jar
+*.war
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE / agents
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.claude/
+
+# Python (future POCs)
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.env
+
+# Secrets - never commit these
+auth-service/k8/secret.yaml
+
+# Logs
+*.log
+logs/
+
+# Spring Boot
+spring.log
