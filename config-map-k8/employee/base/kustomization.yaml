@@ -1,0 +1,7 @@
+configMapGenerator:
+  - name: employee-config
+    files:
+      - employee.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

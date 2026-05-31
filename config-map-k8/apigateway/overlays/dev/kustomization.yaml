@@ -1,0 +1,11 @@
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: apigateway-config
+    behavior: merge
+    files:
+      - apigateway-dev.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

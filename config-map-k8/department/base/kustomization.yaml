@@ -1,0 +1,7 @@
+configMapGenerator:
+  - name: department-config
+    files:
+      - department.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

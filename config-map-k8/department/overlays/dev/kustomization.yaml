@@ -1,0 +1,11 @@
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: department-config
+    behavior: merge
+    files:
+      - department-dev.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,4 @@
+resources:
+  - services/employee/overlays/dev
+  # later you can add:
+  # - services/department/overlays/dev

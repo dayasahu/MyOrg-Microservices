@@ -1,0 +1,7 @@
+configMapGenerator:
+  - name: apigateway-config
+    files:
+      - apigateway.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

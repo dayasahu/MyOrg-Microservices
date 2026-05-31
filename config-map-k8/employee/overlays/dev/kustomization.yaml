@@ -1,0 +1,11 @@
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: employee-config
+    behavior: merge
+    files:
+      - employee-dev.properties
+
+generatorOptions:
+  disableNameSuffixHash: true

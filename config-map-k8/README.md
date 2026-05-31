@@ -1,0 +1,1 @@
+# spring-config-k8s
