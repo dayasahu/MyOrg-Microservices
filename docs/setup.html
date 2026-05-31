@@ -120,14 +120,15 @@ docker login
 <span class="c"># username + a Docker Hub access token (Account → Security → New Access Token)</span></code></pre>
 
     <h3>Option A — Use your own Docker Hub account</h3>
-    <p>Point the image names at <em>your</em> namespace. The image prefix appears in the
-       <code>Makefile</code> (<code>build</code>/<code>push</code> targets) and in each service's
-       <code>k8/deployment.yaml</code> / <code>rollout.yaml</code>. Replace <code>dayasahu6077</code>
-       with your Docker Hub username, then:</p>
+    <p>The image namespace is a single <code>REGISTRY</code> variable (default
+       <code>dayasahu6077</code>). Override it on the command line — no file edits needed:</p>
 <pre><code>docker login
-make build
-make push        <span class="c"># now pushes to YOUR namespace</span>
-make deploy</code></pre>
+make up REGISTRY=your-dockerhub-username
+<span class="c"># build/push/deploy all use YOUR namespace</span></code></pre>
+    <p>For the CI pipeline, set a repository <strong>variable</strong> instead:
+       <em>Settings → Secrets and variables → Actions → Variables → New variable</em>
+       → <code>REGISTRY = your-dockerhub-username</code> (plus the
+       <code>DOCKERHUB_USERNAME</code> / <code>DOCKERHUB_TOKEN</code> secrets).</p>
 
     <h3>Option B — Local-only, no push needed</h3>
     <p>With Docker Desktop's built-in Kubernetes, images you build locally are already visible to the

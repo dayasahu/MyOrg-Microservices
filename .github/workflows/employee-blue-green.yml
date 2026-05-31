@@ -10,7 +10,8 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE:        dayasahu6077/employee
+  # Set a repo variable REGISTRY (Settings - Variables) to use your own Docker Hub namespace.
+  IMAGE:        ${{ vars.REGISTRY || 'dayasahu6077' }}/employee
   SERVICE:      employee
   NAMESPACE:    microservices
   PREVIEW_SVC:  employee-preview
