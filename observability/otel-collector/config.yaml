@@ -1,0 +1,109 @@
+# OpenTelemetry Collector configuration.
+#
+# Pipelines:
+#   traces  : services -> OTLP gRPC :4317 -> Tempo
+#   metrics : Prometheus scrape (collector + services) -> Prometheus remote_write
+#   logs    : services (logback OTLP appender) -> OTLP -> Loki (native OTLP endpoint)
+
+receivers:
+  # Receives traces, metrics, logs over OTLP from the Spring Boot services.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Scrapes Prometheus-format metrics from the services and from the collector itself.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['localhost:8888']
+
+        - job_name: 'spring-services'
+          metrics_path: /actuator/prometheus
+          scrape_interval: 15s
+          static_configs:
+            - targets:
+                - 'host.docker.internal:30081'
+                - 'host.docker.internal:30082'
+                - 'host.docker.internal:30083'
+                - 'host.docker.internal:30071'
+              labels:
+                env: dev
+
+processors:
+  # Group telemetry into batches before exporting; cuts network overhead.
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+
+  # Stamp every record with its origin service so Grafana correlation works.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: dev
+        action: upsert
+
+  # Drop labels that would otherwise explode Loki cardinality.
+  attributes/loki:
+    actions:
+      - key: thread_name
+        action: delete
+      - key: log.file.path
+        action: delete
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+exporters:
+  # Loki has a native OTLP HTTP endpoint at /otlp since v3.0.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+  # Tempo accepts OTLP directly.
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Push metrics into Prometheus via remote_write.
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+
+  # Stdout for debugging - flip the pipeline to include this if something is missing.
+  debug:
+    verbosity: basic
+
+service:
+  extensions: [health_check]
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [otlp/tempo]
+
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [resource, batch]
+      exporters: [prometheusremotewrite]
+
+    logs:
+      receivers: [otlp]
+      processors: [resource, attributes/loki, batch]
+      exporters: [otlphttp/loki]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

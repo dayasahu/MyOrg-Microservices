@@ -1,0 +1,175 @@
+﻿{
+  "title": "Slow API Tracker",
+  "uid": "slow-api-tracker",
+  "tags": ["performance", "api", "slo"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "type": "prometheus" },
+        "query": "label_values(http_server_requests_seconds_count{job=\"spring-services\"}, app)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Service"
+      },
+      {
+        "name": "threshold_ms",
+        "type": "custom",
+        "query": "10,50,100,200,500,1000",
+        "current": { "text": "10", "value": "10" },
+        "options": [
+          { "text": "10ms",   "value": "10"   },
+          { "text": "50ms",   "value": "50"   },
+          { "text": "100ms",  "value": "100"  },
+          { "text": "200ms",  "value": "200"  },
+          { "text": "500ms",  "value": "500"  },
+          { "text": "1000ms", "value": "1000" }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "label": "Slow if > (ms)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "type": "stat", "title": "Slow APIs Right Now",
+      "description": "Number of unique URIs exceeding threshold",
+      "datasource": { "type": "prometheus" },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}] } } },
+      "targets": [{ "expr": "count(histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))) * 1000 > $threshold_ms) or vector(0)", "legendFormat": "" }]
+    },
+    {
+      "id": 2, "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "type": "stat", "title": "Worst P95 Response Time",
+      "datasource": { "type": "prometheus" },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":500,"color":"red"}] } } },
+      "targets": [{ "expr": "max(histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))) * 1000)", "legendFormat": "" }]
+    },
+    {
+      "id": 3, "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "type": "stat", "title": "Total Slow Requests",
+      "description": "Requests that exceeded threshold in last 5 min",
+      "datasource": { "type": "prometheus" },
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":10,"color":"yellow"},{"value":100,"color":"red"}] } } },
+      "targets": [{ "expr": "sum(increase(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\", le=\"0.1\"}[5m]))", "legendFormat": "" }]
+    },
+    {
+      "id": 4, "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "type": "stat", "title": "SLO Compliance (< $threshold_ms ms)",
+      "datasource": { "type": "prometheus" },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"red"},{"value":95,"color":"yellow"},{"value":99,"color":"green"}] } } },
+      "targets": [{ "expr": "100 * sum(rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\", le=\"0.01\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))", "legendFormat": "" }]
+    },
+    {
+      "id": 5, "gridPos": { "x": 0, "y": 4, "w": 24, "h": 10 },
+      "type": "table",
+      "title": "APIs Exceeding $threshold_ms ms — P95 Response Time",
+      "description": "Only shows endpoints slower than selected threshold. Sort by P95 to find worst offenders.",
+      "datasource": { "type": "prometheus" },
+      "options": {
+        "sortBy": [{ "displayName": "P95 (ms)", "desc": true }],
+        "footer": { "show": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "app" }, "properties": [{ "id": "displayName", "value": "Service" }] },
+          { "matcher": { "id": "byName", "options": "uri" }, "properties": [{ "id": "displayName", "value": "Endpoint" }] },
+          { "matcher": { "id": "byName", "options": "Value #P50" }, "properties": [{ "id": "displayName", "value": "P50 (ms)" }, { "id": "unit", "value": "ms" }] },
+          { "matcher": { "id": "byName", "options": "Value #P95" }, "properties": [
+            { "id": "displayName", "value": "P95 (ms)" },
+            { "id": "unit", "value": "ms" },
+            { "id": "thresholds", "value": { "steps": [{"value":0,"color":"green"},{"value": 10,"color":"yellow"},{"value":100,"color":"red"}] } },
+            { "id": "custom.displayMode", "value": "color-background" }
+          ]},
+          { "matcher": { "id": "byName", "options": "Value #P99" }, "properties": [{ "id": "displayName", "value": "P99 (ms)" }, { "id": "unit", "value": "ms" }] },
+          { "matcher": { "id": "byName", "options": "Value #Rate" }, "properties": [{ "id": "displayName", "value": "Rate (req/s)" }, { "id": "unit", "value": "reqps" }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > 0",
+          "legendFormat": "",
+          "refId": "P50",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > $threshold_ms",
+          "legendFormat": "",
+          "refId": "P95",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > 0",
+          "legendFormat": "",
+          "refId": "P99",
+          "instant": true
+        },
+        {
+          "expr": "sum by (app, uri) (rate(http_server_requests_seconds_count{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))",
+          "legendFormat": "",
+          "refId": "Rate",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true }, "renameByName": {} } }
+      ]
+    },
+    {
+      "id": 6, "gridPos": { "x": 0, "y": 14, "w": 24, "h": 10 },
+      "type": "timeseries",
+      "title": "P95 Response Time per Endpoint (over time)",
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }
+      },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[2m]))) * 1000",
+        "legendFormat": "{{app}} {{uri}}"
+      }]
+    },
+    {
+      "id": 7, "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "type": "timeseries",
+      "title": "Slow Request Count (> $threshold_ms ms) over Time",
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [{
+        "expr": "sum by (app, uri) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\", le=\"0.01\"}[2m]))",
+        "legendFormat": "{{app}} {{uri}}"
+      }]
+    },
+    {
+      "id": 8, "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "type": "timeseries",
+      "title": "Max Response Time per Endpoint",
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] } },
+      "targets": [{
+        "expr": "http_server_requests_seconds_max{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"} * 1000",
+        "legendFormat": "{{app}} {{uri}}"
+      }]
+    }
+  ]
+}

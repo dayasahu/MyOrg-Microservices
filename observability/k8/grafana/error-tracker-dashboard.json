@@ -1,0 +1,105 @@
+﻿{
+  "title": "Error Tracker",
+  "uid": "error-tracker",
+  "tags": ["errors", "alerts"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service", "type": "query",
+        "datasource": { "type": "prometheus" },
+        "query": "label_values(http_server_requests_seconds_count{job=\"spring-services\"}, app)",
+        "refresh": 2, "multi": true, "includeAll": true, "allValue": ".+", "label": "Service"
+      },
+      {
+        "name": "window", "type": "custom",
+        "query": "5m,15m,30m,1h,3h",
+        "current": { "text": "30m", "value": "30m" },
+        "options": [
+          {"text":"5m","value":"5m"},{"text":"15m","value":"15m"},
+          {"text":"30m","value":"30m"},{"text":"1h","value":"1h"},{"text":"3h","value":"3h"}
+        ],
+        "multi": false, "includeAll": false, "label": "Time Window"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "gridPos": {"x":0,"y":0,"w":6,"h":4}, "type": "stat",
+      "title": "Total Errors (last $window)",
+      "options": {"colorMode":"background","reduceOptions":{"calcs":["sum"]}},
+      "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":10,"color":"red"}]}}},
+      "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+    },
+    {
+      "id": 2, "gridPos": {"x":6,"y":0,"w":6,"h":4}, "type": "stat",
+      "title": "Error Rate %",
+      "options": {"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit":"percent","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+      "targets": [{"expr":"100 * sum(rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window])) / sum(rate(http_server_requests_seconds_count{app=~\"$service\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+    },
+    {
+      "id": 3, "gridPos": {"x":12,"y":0,"w":6,"h":4}, "type": "stat",
+      "title": "5xx Server Errors",
+      "options": {"colorMode":"background","reduceOptions":{"calcs":["sum"]}},
+      "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"red"}]}}},
+      "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"5..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+    },
+    {
+      "id": 4, "gridPos": {"x":18,"y":0,"w":6,"h":4}, "type": "stat",
+      "title": "4xx Client Errors",
+      "options": {"colorMode":"value","reduceOptions":{"calcs":["sum"]}},
+      "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":50,"color":"orange"}]}}},
+      "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"4..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+    },
+    {
+      "id": 5, "gridPos": {"x":0,"y":4,"w":24,"h":8}, "type": "timeseries",
+      "title": "Error Rate Over Time by Service",
+      "fieldConfig": {"defaults": {"unit":"reqps","custom":{"fillOpacity":10}}},
+      "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets": [{"expr":"sum by (app) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m]))","legendFormat":"{{app}}"}]
+    },
+    {
+      "id": 6, "gridPos": {"x":0,"y":12,"w":12,"h":8}, "type": "timeseries",
+      "title": "Errors by Status Code",
+      "fieldConfig": {"defaults": {"unit":"reqps"}},
+      "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","sum"]}},
+      "targets": [{"expr":"sum by (status) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m]))","legendFormat":"HTTP {{status}}"}]
+    },
+    {
+      "id": 7, "gridPos": {"x":12,"y":12,"w":12,"h":8}, "type": "timeseries",
+      "title": "Errors by Endpoint",
+      "fieldConfig": {"defaults": {"unit":"reqps"}},
+      "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","sum"]}},
+      "targets": [{"expr":"sum by (app,uri) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m])) > 0","legendFormat":"{{app}} {{uri}}"}]
+    },
+    {
+      "id": 8, "gridPos": {"x":0,"y":20,"w":24,"h":8}, "type": "table",
+      "title": "Error Summary by Service + Endpoint",
+      "options": {"sortBy":[{"displayName":"5xx Errors","desc":true}]},
+      "fieldConfig": {
+        "overrides": [
+          {"matcher":{"id":"byName","options":"Value #5xx"},"properties":[{"id":"displayName","value":"5xx Errors"},{"id":"custom.displayMode","value":"color-background"},{"id":"thresholds","value":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"red"}]}}]},
+          {"matcher":{"id":"byName","options":"Value #4xx"},"properties":[{"id":"displayName","value":"4xx Errors"},{"id":"custom.displayMode","value":"color-background"},{"id":"thresholds","value":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"}]}}]},
+          {"matcher":{"id":"byName","options":"Value #Rate"},"properties":[{"id":"displayName","value":"Error Rate (req/s)"},{"id":"unit","value":"reqps"}]}
+        ]
+      },
+      "targets": [
+        {"expr":"sum by (app,uri) (increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"5..\",uri!~\"/actuator.*\"}[$window])) > 0","legendFormat":"","refId":"5xx","instant":true},
+        {"expr":"sum by (app,uri) (increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"4..\",uri!~\"/actuator.*\"}[$window])) > 0","legendFormat":"","refId":"4xx","instant":true},
+        {"expr":"sum by (app,uri) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":"","refId":"Rate","instant":true}
+      ],
+      "transformations":[{"id":"merge","options":{}},{"id":"organize","options":{"excludeByName":{"Time":true,"job":true,"instance":true}}}]
+    },
+    {
+      "id": 9, "gridPos": {"x":0,"y":28,"w":24,"h":10}, "type": "logs",
+      "title": "Error Logs (last $window)",
+      "datasource": {"type": "loki"},
+      "options": {"showTime":true,"wrapLogMessage":true,"showLabels":false,"dedupStrategy":"none","sortOrder":"Descending"},
+      "targets": [{"expr":"{namespace=\"microservices\", app=~\"$service\"} |= \"ERROR\" | json | level=\"ERROR\"","legendFormat":""}]
+    }
+  ]
+}

@@ -1,0 +1,747 @@
+﻿apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: observability
+data:
+  error-tracker.json: |
+    {
+      "title": "Error Tracker",
+      "uid": "error-tracker",
+      "tags": ["errors", "alerts"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": { "from": "now-30m", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "service", "type": "query",
+            "datasource": { "type": "prometheus" },
+            "query": "label_values(http_server_requests_seconds_count{job=\"spring-services\"}, app)",
+            "refresh": 2, "multi": true, "includeAll": true, "allValue": ".+", "label": "Service"
+          },
+          {
+            "name": "window", "type": "custom",
+            "query": "5m,15m,30m,1h,3h",
+            "current": { "text": "30m", "value": "30m" },
+            "options": [
+              {"text":"5m","value":"5m"},{"text":"15m","value":"15m"},
+              {"text":"30m","value":"30m"},{"text":"1h","value":"1h"},{"text":"3h","value":"3h"}
+            ],
+            "multi": false, "includeAll": false, "label": "Time Window"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1, "gridPos": {"x":0,"y":0,"w":6,"h":4}, "type": "stat",
+          "title": "Total Errors (last $window)",
+          "options": {"colorMode":"background","reduceOptions":{"calcs":["sum"]}},
+          "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":10,"color":"red"}]}}},
+          "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+        },
+        {
+          "id": 2, "gridPos": {"x":6,"y":0,"w":6,"h":4}, "type": "stat",
+          "title": "Error Rate %",
+          "options": {"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig": {"defaults": {"unit":"percent","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+          "targets": [{"expr":"100 * sum(rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window])) / sum(rate(http_server_requests_seconds_count{app=~\"$service\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+        },
+        {
+          "id": 3, "gridPos": {"x":12,"y":0,"w":6,"h":4}, "type": "stat",
+          "title": "5xx Server Errors",
+          "options": {"colorMode":"background","reduceOptions":{"calcs":["sum"]}},
+          "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"red"}]}}},
+          "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"5..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+        },
+        {
+          "id": 4, "gridPos": {"x":18,"y":0,"w":6,"h":4}, "type": "stat",
+          "title": "4xx Client Errors",
+          "options": {"colorMode":"value","reduceOptions":{"calcs":["sum"]}},
+          "fieldConfig": {"defaults": {"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":50,"color":"orange"}]}}},
+          "targets": [{"expr":"sum(increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"4..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":""}]
+        },
+        {
+          "id": 5, "gridPos": {"x":0,"y":4,"w":24,"h":8}, "type": "timeseries",
+          "title": "Error Rate Over Time by Service",
+          "fieldConfig": {"defaults": {"unit":"reqps","custom":{"fillOpacity":10}}},
+          "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets": [{"expr":"sum by (app) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m]))","legendFormat":"{{app}}"}]
+        },
+        {
+          "id": 6, "gridPos": {"x":0,"y":12,"w":12,"h":8}, "type": "timeseries",
+          "title": "Errors by Status Code",
+          "fieldConfig": {"defaults": {"unit":"reqps"}},
+          "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","sum"]}},
+          "targets": [{"expr":"sum by (status) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m]))","legendFormat":"HTTP {{status}}"}]
+        },
+        {
+          "id": 7, "gridPos": {"x":12,"y":12,"w":12,"h":8}, "type": "timeseries",
+          "title": "Errors by Endpoint",
+          "fieldConfig": {"defaults": {"unit":"reqps"}},
+          "options": {"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","sum"]}},
+          "targets": [{"expr":"sum by (app,uri) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[2m])) > 0","legendFormat":"{{app}} {{uri}}"}]
+        },
+        {
+          "id": 8, "gridPos": {"x":0,"y":20,"w":24,"h":8}, "type": "table",
+          "title": "Error Summary by Service + Endpoint",
+          "options": {"sortBy":[{"displayName":"5xx Errors","desc":true}]},
+          "fieldConfig": {
+            "overrides": [
+              {"matcher":{"id":"byName","options":"Value #5xx"},"properties":[{"id":"displayName","value":"5xx Errors"},{"id":"custom.displayMode","value":"color-background"},{"id":"thresholds","value":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"red"}]}}]},
+              {"matcher":{"id":"byName","options":"Value #4xx"},"properties":[{"id":"displayName","value":"4xx Errors"},{"id":"custom.displayMode","value":"color-background"},{"id":"thresholds","value":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"}]}}]},
+              {"matcher":{"id":"byName","options":"Value #Rate"},"properties":[{"id":"displayName","value":"Error Rate (req/s)"},{"id":"unit","value":"reqps"}]}
+            ]
+          },
+          "targets": [
+            {"expr":"sum by (app,uri) (increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"5..\",uri!~\"/actuator.*\"}[$window])) > 0","legendFormat":"","refId":"5xx","instant":true},
+            {"expr":"sum by (app,uri) (increase(http_server_requests_seconds_count{app=~\"$service\",status=~\"4..\",uri!~\"/actuator.*\"}[$window])) > 0","legendFormat":"","refId":"4xx","instant":true},
+            {"expr":"sum by (app,uri) (rate(http_server_requests_seconds_count{app=~\"$service\",status=~\"[45]..\",uri!~\"/actuator.*\"}[$window]))","legendFormat":"","refId":"Rate","instant":true}
+          ],
+          "transformations":[{"id":"merge","options":{}},{"id":"organize","options":{"excludeByName":{"Time":true,"job":true,"instance":true}}}]
+        },
+        {
+          "id": 9, "gridPos": {"x":0,"y":28,"w":24,"h":10}, "type": "logs",
+          "title": "Error Logs (last $window)",
+          "datasource": {"type": "loki"},
+          "options": {"showTime":true,"wrapLogMessage":true,"showLabels":false,"dedupStrategy":"none","sortOrder":"Descending"},
+          "targets": [{"expr":"{namespace=\"microservices\", app=~\"$service\"} |= \"ERROR\" | json | level=\"ERROR\"","legendFormat":""}]
+        }
+      ]
+    }
+    
+
+  blue-green.json: |
+    {
+      "title": "Blue-Green Deployment",
+      "uid": "blue-green",
+      "tags": ["deployment","blue-green","argo"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": {"from":"now-30m","to":"now"},
+      "templating": {
+        "list": [{
+          "name": "service", "type": "custom",
+          "query": "employee,department",
+          "current": {"text":"employee","value":"employee"},
+          "options": [{"text":"employee","value":"employee"},{"text":"department","value":"department"}],
+          "multi": false, "includeAll": false, "label": "Service"
+        }]
+      },
+      "panels": [
+        {
+          "id":1,"gridPos":{"x":0,"y":0,"w":6,"h":4},"type":"stat",
+          "title":"Blue (Active) Pods",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"blue"}]}}},
+          "targets":[{"expr":"sum(kube_pod_status_ready{namespace=\"microservices\",pod=~\"$service.*\",condition=\"true\"})","legendFormat":""}]
+        },
+        {
+          "id":2,"gridPos":{"x":6,"y":0,"w":6,"h":4},"type":"stat",
+          "title":"Preview (Green) Pods",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"sum(kube_pod_status_ready{namespace=\"microservices\",pod=~\"$service-preview.*\",condition=\"true\"}) or vector(0)","legendFormat":""}]
+        },
+        {
+          "id":3,"gridPos":{"x":12,"y":0,"w":6,"h":4},"type":"stat",
+          "title":"Active Error Rate %",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"unit":"percent","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+          "targets":[{"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"$service\",status=~\"[45]..\"}[2m])) / sum(rate(http_server_requests_seconds_count{app=\"$service\"}[2m]))","legendFormat":""}]
+        },
+        {
+          "id":4,"gridPos":{"x":18,"y":0,"w":6,"h":4},"type":"stat",
+          "title":"Active P95 Latency",
+          "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"unit":"ms","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":500,"color":"red"}]}}},
+          "targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$service\",uri!~\"/actuator.*\"}[2m]))) * 1000","legendFormat":""}]
+        },
+        {
+          "id":5,"gridPos":{"x":0,"y":4,"w":12,"h":8},"type":"timeseries",
+          "title":"Request Rate: Active vs Preview",
+          "fieldConfig":{"defaults":{"unit":"reqps"}},
+          "targets":[
+            {"expr":"sum(rate(http_server_requests_seconds_count{app=\"$service\",uri!~\"/actuator.*\"}[1m]))","legendFormat":"🔵 Active (Blue)"},
+            {"expr":"sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\",uri!~\"/actuator.*\"}[1m])) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+          ]
+        },
+        {
+          "id":6,"gridPos":{"x":12,"y":4,"w":12,"h":8},"type":"timeseries",
+          "title":"Error Rate: Active vs Preview",
+          "fieldConfig":{"defaults":{"unit":"percent"}},
+          "targets":[
+            {"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"$service\",status=~\"[45]..\"}[1m])) / sum(rate(http_server_requests_seconds_count{app=\"$service\"}[1m]))","legendFormat":"🔵 Active (Blue)"},
+            {"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\",status=~\"[45]..\"}[1m])) / sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\"}[1m])) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+          ]
+        },
+        {
+          "id":7,"gridPos":{"x":0,"y":12,"w":12,"h":8},"type":"timeseries",
+          "title":"P95 Latency: Active vs Preview",
+          "fieldConfig":{"defaults":{"unit":"ms"}},
+          "targets":[
+            {"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$service\",uri!~\"/actuator.*\"}[2m]))) * 1000","legendFormat":"🔵 Active (Blue)"},
+            {"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"${service}-preview\",uri!~\"/actuator.*\"}[2m]))) * 1000 or vector(0)","legendFormat":"🟢 Preview (Green)"}
+          ]
+        },
+        {
+          "id":8,"gridPos":{"x":12,"y":12,"w":12,"h":8},"type":"timeseries",
+          "title":"JVM Heap: Active vs Preview",
+          "fieldConfig":{"defaults":{"unit":"bytes"}},
+          "targets":[
+            {"expr":"sum(jvm_memory_used_bytes{app=\"$service\",area=\"heap\"})","legendFormat":"🔵 Active (Blue)"},
+            {"expr":"sum(jvm_memory_used_bytes{app=\"${service}-preview\",area=\"heap\"}) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+          ]
+        }
+      ]
+    }
+    
+
+  slow-api-tracker.json: |
+    {
+      "title": "Slow API Tracker",
+      "uid": "slow-api-tracker",
+      "tags": ["performance", "api", "slo"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "datasource": { "type": "prometheus" },
+            "query": "label_values(http_server_requests_seconds_count{job=\"spring-services\"}, app)",
+            "refresh": 2,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".+",
+            "label": "Service"
+          },
+          {
+            "name": "threshold_ms",
+            "type": "custom",
+            "query": "10,50,100,200,500,1000",
+            "current": { "text": "10", "value": "10" },
+            "options": [
+              { "text": "10ms",   "value": "10"   },
+              { "text": "50ms",   "value": "50"   },
+              { "text": "100ms",  "value": "100"  },
+              { "text": "200ms",  "value": "200"  },
+              { "text": "500ms",  "value": "500"  },
+              { "text": "1000ms", "value": "1000" }
+            ],
+            "multi": false,
+            "includeAll": false,
+            "label": "Slow if > (ms)"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1, "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "type": "stat", "title": "Slow APIs Right Now",
+          "description": "Number of unique URIs exceeding threshold",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}] } } },
+          "targets": [{ "expr": "count(histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))) * 1000 > $threshold_ms) or vector(0)", "legendFormat": "" }]
+        },
+        {
+          "id": 2, "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "type": "stat", "title": "Worst P95 Response Time",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":500,"color":"red"}] } } },
+          "targets": [{ "expr": "max(histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))) * 1000)", "legendFormat": "" }]
+        },
+        {
+          "id": 3, "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "type": "stat", "title": "Total Slow Requests",
+          "description": "Requests that exceeded threshold in last 5 min",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":10,"color":"yellow"},{"value":100,"color":"red"}] } } },
+          "targets": [{ "expr": "sum(increase(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\", le=\"0.1\"}[5m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 4, "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "type": "stat", "title": "SLO Compliance (< $threshold_ms ms)",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"red"},{"value":95,"color":"yellow"},{"value":99,"color":"green"}] } } },
+          "targets": [{ "expr": "100 * sum(rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*\", le=\"0.01\"}[5m])) / sum(rate(http_server_requests_seconds_count{app=~\"$service\", uri!~\"/actuator.*\"}[5m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 5, "gridPos": { "x": 0, "y": 4, "w": 24, "h": 10 },
+          "type": "table",
+          "title": "APIs Exceeding $threshold_ms ms — P95 Response Time",
+          "description": "Only shows endpoints slower than selected threshold. Sort by P95 to find worst offenders.",
+          "datasource": { "type": "prometheus" },
+          "options": {
+            "sortBy": [{ "displayName": "P95 (ms)", "desc": true }],
+            "footer": { "show": false }
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "ms" },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "app" }, "properties": [{ "id": "displayName", "value": "Service" }] },
+              { "matcher": { "id": "byName", "options": "uri" }, "properties": [{ "id": "displayName", "value": "Endpoint" }] },
+              { "matcher": { "id": "byName", "options": "Value #P50" }, "properties": [{ "id": "displayName", "value": "P50 (ms)" }, { "id": "unit", "value": "ms" }] },
+              { "matcher": { "id": "byName", "options": "Value #P95" }, "properties": [
+                { "id": "displayName", "value": "P95 (ms)" },
+                { "id": "unit", "value": "ms" },
+                { "id": "thresholds", "value": { "steps": [{"value":0,"color":"green"},{"value": 10,"color":"yellow"},{"value":100,"color":"red"}] } },
+                { "id": "custom.displayMode", "value": "color-background" }
+              ]},
+              { "matcher": { "id": "byName", "options": "Value #P99" }, "properties": [{ "id": "displayName", "value": "P99 (ms)" }, { "id": "unit", "value": "ms" }] },
+              { "matcher": { "id": "byName", "options": "Value #Rate" }, "properties": [{ "id": "displayName", "value": "Rate (req/s)" }, { "id": "unit", "value": "reqps" }] }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > 0",
+              "legendFormat": "",
+              "refId": "P50",
+              "instant": true
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > $threshold_ms",
+              "legendFormat": "",
+              "refId": "P95",
+              "instant": true
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))) * 1000 > 0",
+              "legendFormat": "",
+              "refId": "P99",
+              "instant": true
+            },
+            {
+              "expr": "sum by (app, uri) (rate(http_server_requests_seconds_count{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[5m]))",
+              "legendFormat": "",
+              "refId": "Rate",
+              "instant": true
+            }
+          ],
+          "transformations": [
+            { "id": "merge", "options": {} },
+            { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true }, "renameByName": {} } }
+          ]
+        },
+        {
+          "id": 6, "gridPos": { "x": 0, "y": 14, "w": 24, "h": 10 },
+          "type": "timeseries",
+          "title": "P95 Response Time per Endpoint (over time)",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ms" },
+            "overrides": []
+          },
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }
+          },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum by (app, uri, le) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"}[2m]))) * 1000",
+            "legendFormat": "{{app}} {{uri}}"
+          }]
+        },
+        {
+          "id": 7, "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+          "type": "timeseries",
+          "title": "Slow Request Count (> $threshold_ms ms) over Time",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "short" } },
+          "targets": [{
+            "expr": "sum by (app, uri) (rate(http_server_requests_seconds_bucket{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\", le=\"0.01\"}[2m]))",
+            "legendFormat": "{{app}} {{uri}}"
+          }]
+        },
+        {
+          "id": 8, "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+          "type": "timeseries",
+          "title": "Max Response Time per Endpoint",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ms" } },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] } },
+          "targets": [{
+            "expr": "http_server_requests_seconds_max{app=~\"$service\", uri!~\"/actuator.*|UNKNOWN\"} * 1000",
+            "legendFormat": "{{app}} {{uri}}"
+          }]
+        }
+      ]
+    }
+    
+
+  service-overview.json: |
+    {
+      "title": "Service Health Overview",
+      "uid": "service-overview",
+      "tags": ["overview","ops","noc"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": {"from":"now-30m","to":"now"},
+      "panels": [
+        {"id":1,"gridPos":{"x":0,"y":0,"w":24,"h":1},"type":"text","title":"","options":{"mode":"markdown","content":"# 🟢 MyOrg Microservices — Live Health Status"}},
+        {
+          "id":2,"gridPos":{"x":0,"y":1,"w":4,"h":4},"type":"stat","title":"employee",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]},"textMode":"value_and_name"},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"up{job=\"spring-services\",app=\"employee\"}","legendFormat":"employee"}]
+        },
+        {
+          "id":3,"gridPos":{"x":4,"y":1,"w":4,"h":4},"type":"stat","title":"department",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"up{job=\"spring-services\",app=\"department\"}","legendFormat":"department"}]
+        },
+        {
+          "id":4,"gridPos":{"x":8,"y":1,"w":4,"h":4},"type":"stat","title":"apigateway",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"up{job=\"spring-services\",app=\"apigateway\"}","legendFormat":"apigateway"}]
+        },
+        {
+          "id":5,"gridPos":{"x":12,"y":1,"w":4,"h":4},"type":"stat","title":"configserver",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"up{job=\"spring-services\",app=\"configserver\"}","legendFormat":"configserver"}]
+        },
+        {
+          "id":6,"gridPos":{"x":16,"y":1,"w":4,"h":4},"type":"stat","title":"auth-service",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "targets":[{"expr":"up{job=\"spring-services\",app=\"auth-service\"}","legendFormat":"auth-service"}]
+        },
+        {
+          "id":7,"gridPos":{"x":20,"y":1,"w":4,"h":4},"type":"stat","title":"All Services UP",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"mappings":[{"type":"value","options":{"5":{"text":"ALL UP ✅","color":"green"}}}],"thresholds":{"steps":[{"value":0,"color":"red"},{"value":5,"color":"green"}]}}},
+          "targets":[{"expr":"sum(up{job=\"spring-services\"})","legendFormat":""}]
+        },
+        {
+          "id":8,"gridPos":{"x":0,"y":5,"w":24,"h":8},"type":"timeseries",
+          "title":"Request Rate — All Services",
+          "fieldConfig":{"defaults":{"unit":"reqps","custom":{"fillOpacity":5}}},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","mean","max"]}},
+          "targets":[{"expr":"sum by (app) (rate(http_server_requests_seconds_count{job=\"spring-services\",uri!~\"/actuator.*\"}[1m]))","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":9,"gridPos":{"x":0,"y":13,"w":12,"h":8},"type":"timeseries",
+          "title":"Error Rate — All Services",
+          "fieldConfig":{"defaults":{"unit":"percent","custom":{"fillOpacity":10}}},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"100 * sum by (app) (rate(http_server_requests_seconds_count{job=\"spring-services\",status=~\"[45]..\",uri!~\"/actuator.*\"}[1m])) / sum by (app) (rate(http_server_requests_seconds_count{job=\"spring-services\",uri!~\"/actuator.*\"}[1m]))","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":10,"gridPos":{"x":12,"y":13,"w":12,"h":8},"type":"timeseries",
+          "title":"P95 Response Time — All Services",
+          "fieldConfig":{"defaults":{"unit":"ms"}},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"histogram_quantile(0.95, sum by (app,le) (rate(http_server_requests_seconds_bucket{job=\"spring-services\",uri!~\"/actuator.*\"}[2m]))) * 1000","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":11,"gridPos":{"x":0,"y":21,"w":12,"h":8},"type":"timeseries",
+          "title":"JVM Heap — All Services",
+          "fieldConfig":{"defaults":{"unit":"bytes"}},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull"]}},
+          "targets":[{"expr":"sum by (app) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":12,"gridPos":{"x":12,"y":21,"w":12,"h":8},"type":"timeseries",
+          "title":"CPU Usage — All Services",
+          "fieldConfig":{"defaults":{"unit":"percentunit"}},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"process_cpu_usage{job=\"spring-services\"}","legendFormat":"{{app}}"}]
+        }
+      ]
+    }
+    
+
+  spring-microservices.json: |
+    {
+      "title": "Spring Boot Microservices",
+      "uid": "spring-boot-ms",
+      "tags": ["spring-boot", "microservices", "kubernetes"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "query": "label_values(jvm_memory_used_bytes, app)",
+            "refresh": 2,
+            "multi": true,
+            "includeAll": true, "allValue": ".+",
+            "label": "Service"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1, "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "Service UP",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "mappings": [{"type":"value","options":{"1":{"text":"UP","color":"green"},"0":{"text":"DOWN","color":"red"}}}], "thresholds": { "steps": [{"value":0,"color":"red"},{"value":1,"color":"green"}] } } },
+          "targets": [{ "expr": "up{job=\"spring-services\", app=\"$service\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 2, "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "Request Rate (req/s)",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":500,"color":"red"}] } } },
+          "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{app=\"$service\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 3, "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "Error Rate %",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}] } } },
+          "targets": [{ "expr": "100 * sum(rate(http_server_requests_seconds_count{app=\"$service\",status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{app=\"$service\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 4, "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "P95 Response Time",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":500,"color":"yellow"},{"value":2000,"color":"red"}] } } },
+          "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{app=\"$service\"}[5m])) by (le)) * 1000", "legendFormat": "" }]
+        },
+        {
+          "id": 5, "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "JVM Heap Used",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":536870912,"color":"yellow"},{"value":858993459,"color":"red"}] } } },
+          "targets": [{ "expr": "sum(jvm_memory_used_bytes{app=\"$service\", area=\"heap\"})", "legendFormat": "" }]
+        },
+        {
+          "id": 6, "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+          "type": "stat", "title": "Live Threads",
+          "datasource": { "type": "prometheus" },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":200,"color":"red"}] } } },
+          "targets": [{ "expr": "jvm_threads_live_threads{app=\"$service\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 7, "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "HTTP Request Rate by Endpoint",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [{ "expr": "sum by (uri) (rate(http_server_requests_seconds_count{app=\"$service\", uri!~\"/actuator.*\"}[1m]))", "legendFormat": "{{uri}}" }]
+        },
+        {
+          "id": 8, "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "Response Time Percentiles (ms)",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ms" } },
+          "targets": [
+            { "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{app=\"$service\"}[5m])) by (le)) * 1000", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{app=\"$service\"}[5m])) by (le)) * 1000", "legendFormat": "p95" },
+            { "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{app=\"$service\"}[5m])) by (le)) * 1000", "legendFormat": "p99" }
+          ]
+        },
+        {
+          "id": 9, "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "JVM Heap Memory",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [
+            { "expr": "jvm_memory_used_bytes{app=\"$service\", area=\"heap\"}", "legendFormat": "Used - {{id}}" },
+            { "expr": "jvm_memory_committed_bytes{app=\"$service\", area=\"heap\"}", "legendFormat": "Committed - {{id}}" },
+            { "expr": "jvm_memory_max_bytes{app=\"$service\", area=\"heap\"}", "legendFormat": "Max - {{id}}" }
+          ]
+        },
+        {
+          "id": 10, "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "JVM Non-Heap Memory",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [
+            { "expr": "jvm_memory_used_bytes{app=\"$service\", area=\"nonheap\"}", "legendFormat": "Used - {{id}}" },
+            { "expr": "jvm_memory_committed_bytes{app=\"$service\", area=\"nonheap\"}", "legendFormat": "Committed - {{id}}" }
+          ]
+        },
+        {
+          "id": 11, "gridPos": { "x": 0, "y": 20, "w": 8, "h": 8 },
+          "type": "timeseries", "title": "CPU Usage",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 } },
+          "targets": [
+            { "expr": "process_cpu_usage{app=\"$service\"}", "legendFormat": "Process CPU" },
+            { "expr": "system_cpu_usage{app=\"$service\"}", "legendFormat": "System CPU" }
+          ]
+        },
+        {
+          "id": 12, "gridPos": { "x": 8, "y": 20, "w": 8, "h": 8 },
+          "type": "timeseries", "title": "JVM Threads",
+          "datasource": { "type": "prometheus" },
+          "targets": [
+            { "expr": "jvm_threads_live_threads{app=\"$service\"}", "legendFormat": "Live" },
+            { "expr": "jvm_threads_daemon_threads{app=\"$service\"}", "legendFormat": "Daemon" },
+            { "expr": "jvm_threads_peak_threads{app=\"$service\"}", "legendFormat": "Peak" }
+          ]
+        },
+        {
+          "id": 13, "gridPos": { "x": 16, "y": 20, "w": 8, "h": 8 },
+          "type": "timeseries", "title": "GC Pause Duration",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "targets": [
+            { "expr": "rate(jvm_gc_pause_seconds_sum{app=\"$service\"}[1m])", "legendFormat": "{{action}} {{cause}}" }
+          ]
+        },
+        {
+          "id": 14, "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "HTTP Errors by Status Code",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [
+            { "expr": "sum by (status) (rate(http_server_requests_seconds_count{app=\"$service\", status=~\"[45]..\"}[1m]))", "legendFormat": "{{status}}" }
+          ]
+        },
+        {
+          "id": 15, "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+          "type": "timeseries", "title": "GC Memory Allocated vs Promoted",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [
+            { "expr": "rate(jvm_gc_memory_allocated_bytes_total{app=\"$service\"}[1m])", "legendFormat": "Allocated" },
+            { "expr": "rate(jvm_gc_memory_promoted_bytes_total{app=\"$service\"}[1m])", "legendFormat": "Promoted" }
+          ]
+        },
+        {
+          "id": 16, "gridPos": { "x": 0, "y": 36, "w": 24, "h": 8 },
+          "type": "timeseries", "title": "All Services — Request Rate Comparison",
+          "datasource": { "type": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [
+            { "expr": "sum by (app) (rate(http_server_requests_seconds_count{job=\"spring-services\", uri!~\"/actuator.*\"}[1m]))", "legendFormat": "{{app}}" }
+          ]
+        }
+      ]
+    }
+    
+    
+
+  k8s-infra.json: |
+    {
+      "title": "Infrastructure / Kubernetes",
+      "uid": "k8s-infra",
+      "tags": ["kubernetes","infrastructure","pods"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "refresh": "15s",
+      "time": {"from":"now-1h","to":"now"},
+      "panels": [
+        {
+          "id":1,"gridPos":{"x":0,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Running Pods",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"count(kube_pod_status_phase{namespace=\"microservices\",phase=\"Running\"})","legendFormat":""}]
+        },
+        {
+          "id":2,"gridPos":{"x":4,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Pending Pods",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"}]}}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"count(kube_pod_status_phase{namespace=\"microservices\",phase=\"Pending\"}) or vector(0)","legendFormat":""}]
+        },
+        {
+          "id":3,"gridPos":{"x":8,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Pod Restarts (1h)",
+          "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"sum(increase(kube_pod_container_status_restarts_total{namespace=\"microservices\"}[1h]))","legendFormat":""}]
+        },
+        {
+          "id":4,"gridPos":{"x":12,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Total CPU Cores Used",
+          "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"unit":"short","decimals":2}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"sum(process_cpu_usage{job=\"spring-services\"})","legendFormat":""}]
+        },
+        {
+          "id":5,"gridPos":{"x":16,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Total Heap Used",
+          "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"unit":"bytes"}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"sum(jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":""}]
+        },
+        {
+          "id":6,"gridPos":{"x":20,"y":0,"w":4,"h":4},"type":"stat",
+          "title":"Total Threads",
+          "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+          "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":200,"color":"yellow"},{"value":500,"color":"red"}]}}},
+          "datasource":{"type":"prometheus"},
+          "targets":[{"expr":"sum(jvm_threads_live_threads{job=\"spring-services\"})","legendFormat":""}]
+        },
+        {
+          "id":7,"gridPos":{"x":0,"y":4,"w":12,"h":8},"type":"timeseries",
+          "title":"CPU Usage per Service",
+          "fieldConfig":{"defaults":{"unit":"percentunit"}},
+          "datasource":{"type":"prometheus"},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"process_cpu_usage{job=\"spring-services\"}","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":8,"gridPos":{"x":12,"y":4,"w":12,"h":8},"type":"timeseries",
+          "title":"Heap Memory Used per Service",
+          "fieldConfig":{"defaults":{"unit":"bytes"}},
+          "datasource":{"type":"prometheus"},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[
+            {"expr":"sum by (app) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}} used"},
+            {"expr":"sum by (app) (jvm_memory_max_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}} max"}
+          ]
+        },
+        {
+          "id":9,"gridPos":{"x":0,"y":12,"w":12,"h":8},"type":"timeseries",
+          "title":"JVM Threads per Service",
+          "fieldConfig":{"defaults":{"unit":"short"}},
+          "datasource":{"type":"prometheus"},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[
+            {"expr":"jvm_threads_live_threads{job=\"spring-services\"}","legendFormat":"{{app}} live"},
+            {"expr":"jvm_threads_peak_threads{job=\"spring-services\"}","legendFormat":"{{app}} peak"}
+          ]
+        },
+        {
+          "id":10,"gridPos":{"x":12,"y":12,"w":12,"h":8},"type":"timeseries",
+          "title":"GC Overhead per Service",
+          "fieldConfig":{"defaults":{"unit":"percentunit"}},
+          "datasource":{"type":"prometheus"},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"jvm_gc_overhead{job=\"spring-services\"}","legendFormat":"{{app}}"}]
+        },
+        {
+          "id":11,"gridPos":{"x":0,"y":20,"w":24,"h":8},"type":"timeseries",
+          "title":"Heap % of Limit per Service",
+          "description":"How close each service is to its memory limit",
+          "fieldConfig":{"defaults":{"unit":"percent","max":100}},
+          "datasource":{"type":"prometheus"},
+          "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+          "targets":[{"expr":"100 * sum by (app) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"}) / sum by (app) (jvm_memory_max_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}}"}]
+        }
+      ]
+    }
+    
+

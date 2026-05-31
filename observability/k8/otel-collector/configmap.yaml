@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'otel-collector'
+              scrape_interval: 15s
+              static_configs:
+                - targets: ['localhost:8888']
+
+            - job_name: 'spring-services'
+              metrics_path: /actuator/prometheus
+              scrape_interval: 15s
+              static_configs:
+                - targets:
+                    - 'employee.microservices.svc.cluster.local:80'
+                    - 'department.microservices.svc.cluster.local:80'
+                    - 'apigateway.microservices.svc.cluster.local:80'
+                    - 'configserver.microservices.svc.cluster.local:8071'
+                  labels:
+                    env: dev
+
+    processors:
+      batch:
+        send_batch_size: 1024
+        timeout: 5s
+
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: dev
+            action: upsert
+
+      attributes/loki:
+        actions:
+          - key: thread_name
+            action: delete
+          - key: log.file.path
+            action: delete
+
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    exporters:
+      otlphttp/loki:
+        endpoint: http://loki.observability.svc.cluster.local:3100/otlp
+        tls:
+          insecure: true
+
+      otlp/tempo:
+        endpoint: tempo.observability.svc.cluster.local:4317
+        tls:
+          insecure: true
+
+      prometheusremotewrite:
+        endpoint: http://prometheus.observability.svc.cluster.local:9090/api/v1/write
+        tls:
+          insecure: true
+
+      debug:
+        verbosity: basic
+
+    service:
+      extensions: [health_check]
+
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [resource, batch]
+          exporters: [otlp/tempo]
+
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [resource, batch]
+          exporters: [prometheusremotewrite]
+
+        logs:
+          receivers: [otlp]
+          processors: [resource, attributes/loki, batch]
+          exporters: [otlphttp/loki]
+
+      telemetry:
+        logs:
+          level: info
+        metrics:
+          address: 0.0.0.0:8888

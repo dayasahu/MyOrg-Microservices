@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+
+  # Grafana Alloy — DaemonSet that collects logs + traces + metrics
+  - alloy/serviceaccount.yaml
+  - alloy/configmap.yaml
+  - alloy/daemonset.yaml
+  - alloy/service.yaml
+
+  # Loki — log storage
+  - loki/configmap.yaml
+  - loki/deployment.yaml
+  - loki/service.yaml
+
+  # Tempo — trace storage
+  - tempo/configmap.yaml
+  - tempo/deployment.yaml
+  - tempo/service.yaml
+
+  # Prometheus — metrics storage
+  - prometheus/configmap.yaml
+  - prometheus/deployment.yaml
+  - prometheus/service.yaml
+
+  # Grafana — dashboard UI
+  - grafana/configmap-datasources.yaml
+  - grafana/configmap-dashboards.yaml
+  - grafana/configmap-dashboard-json.yaml
+  - grafana/deployment.yaml
+  - grafana/service.yaml
+
+  # Ingress — expose tools via nginx (same LB as api.myorg.com)
+  - ingress.yaml

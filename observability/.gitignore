@@ -1,0 +1,6 @@
+# Persistent volumes are managed by Docker, not the repo.
+data/
+loki-data/
+tempo-data/
+prometheus-data/
+grafana-data/

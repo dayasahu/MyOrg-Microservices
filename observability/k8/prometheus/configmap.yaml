@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: observability
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: k8s
+        env: dev
+
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'alloy'
+        static_configs:
+          - targets: ['alloy.observability.svc.cluster.local:12345']
+
+      - job_name: 'spring-services'
+        metrics_path: /actuator/prometheus
+        scrape_interval: 15s
+        static_configs:
+          - targets:
+              - 'employee.microservices.svc.cluster.local:80'
+              - 'department.microservices.svc.cluster.local:80'
+              - 'apigateway.microservices.svc.cluster.local:80'
+              - 'configserver.microservices.svc.cluster.local:8071'
+            labels:
+              env: dev
+
+      - job_name: 'tempo'
+        static_configs:
+          - targets: ['tempo.observability.svc.cluster.local:3200']

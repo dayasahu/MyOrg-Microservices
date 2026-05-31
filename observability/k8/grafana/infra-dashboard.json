@@ -1,0 +1,106 @@
+﻿{
+  "title": "Infrastructure / Kubernetes",
+  "uid": "k8s-infra",
+  "tags": ["kubernetes","infrastructure","pods"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": {"from":"now-1h","to":"now"},
+  "panels": [
+    {
+      "id":1,"gridPos":{"x":0,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Running Pods",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"green"}]}}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"count(kube_pod_status_phase{namespace=\"microservices\",phase=\"Running\"})","legendFormat":""}]
+    },
+    {
+      "id":2,"gridPos":{"x":4,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Pending Pods",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"}]}}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"count(kube_pod_status_phase{namespace=\"microservices\",phase=\"Pending\"}) or vector(0)","legendFormat":""}]
+    },
+    {
+      "id":3,"gridPos":{"x":8,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Pod Restarts (1h)",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"sum(increase(kube_pod_container_status_restarts_total{namespace=\"microservices\"}[1h]))","legendFormat":""}]
+    },
+    {
+      "id":4,"gridPos":{"x":12,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Total CPU Cores Used",
+      "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"unit":"short","decimals":2}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"sum(process_cpu_usage{job=\"spring-services\"})","legendFormat":""}]
+    },
+    {
+      "id":5,"gridPos":{"x":16,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Total Heap Used",
+      "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"unit":"bytes"}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"sum(jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":""}]
+    },
+    {
+      "id":6,"gridPos":{"x":20,"y":0,"w":4,"h":4},"type":"stat",
+      "title":"Total Threads",
+      "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":200,"color":"yellow"},{"value":500,"color":"red"}]}}},
+      "datasource":{"type":"prometheus"},
+      "targets":[{"expr":"sum(jvm_threads_live_threads{job=\"spring-services\"})","legendFormat":""}]
+    },
+    {
+      "id":7,"gridPos":{"x":0,"y":4,"w":12,"h":8},"type":"timeseries",
+      "title":"CPU Usage per Service",
+      "fieldConfig":{"defaults":{"unit":"percentunit"}},
+      "datasource":{"type":"prometheus"},
+      "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets":[{"expr":"process_cpu_usage{job=\"spring-services\"}","legendFormat":"{{app}}"}]
+    },
+    {
+      "id":8,"gridPos":{"x":12,"y":4,"w":12,"h":8},"type":"timeseries",
+      "title":"Heap Memory Used per Service",
+      "fieldConfig":{"defaults":{"unit":"bytes"}},
+      "datasource":{"type":"prometheus"},
+      "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets":[
+        {"expr":"sum by (app) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}} used"},
+        {"expr":"sum by (app) (jvm_memory_max_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}} max"}
+      ]
+    },
+    {
+      "id":9,"gridPos":{"x":0,"y":12,"w":12,"h":8},"type":"timeseries",
+      "title":"JVM Threads per Service",
+      "fieldConfig":{"defaults":{"unit":"short"}},
+      "datasource":{"type":"prometheus"},
+      "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets":[
+        {"expr":"jvm_threads_live_threads{job=\"spring-services\"}","legendFormat":"{{app}} live"},
+        {"expr":"jvm_threads_peak_threads{job=\"spring-services\"}","legendFormat":"{{app}} peak"}
+      ]
+    },
+    {
+      "id":10,"gridPos":{"x":12,"y":12,"w":12,"h":8},"type":"timeseries",
+      "title":"GC Overhead per Service",
+      "fieldConfig":{"defaults":{"unit":"percentunit"}},
+      "datasource":{"type":"prometheus"},
+      "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets":[{"expr":"jvm_gc_overhead{job=\"spring-services\"}","legendFormat":"{{app}}"}]
+    },
+    {
+      "id":11,"gridPos":{"x":0,"y":20,"w":24,"h":8},"type":"timeseries",
+      "title":"Heap % of Limit per Service",
+      "description":"How close each service is to its memory limit",
+      "fieldConfig":{"defaults":{"unit":"percent","max":100}},
+      "datasource":{"type":"prometheus"},
+      "options":{"legend":{"displayMode":"table","placement":"right","calcs":["lastNotNull","max"]}},
+      "targets":[{"expr":"100 * sum by (app) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"}) / sum by (app) (jvm_memory_max_bytes{job=\"spring-services\",area=\"heap\"})","legendFormat":"{{app}}"}]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+﻿{
+  "title": "Blue-Green Deployment",
+  "uid": "blue-green",
+  "tags": ["deployment","blue-green","argo"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "10s",
+  "time": {"from":"now-30m","to":"now"},
+  "templating": {
+    "list": [{
+      "name": "service", "type": "custom",
+      "query": "employee,department",
+      "current": {"text":"employee","value":"employee"},
+      "options": [{"text":"employee","value":"employee"},{"text":"department","value":"department"}],
+      "multi": false, "includeAll": false, "label": "Service"
+    }]
+  },
+  "panels": [
+    {
+      "id":1,"gridPos":{"x":0,"y":0,"w":6,"h":4},"type":"stat",
+      "title":"Blue (Active) Pods",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"red"},{"value":1,"color":"blue"}]}}},
+      "targets":[{"expr":"sum(kube_pod_status_ready{namespace=\"microservices\",pod=~\"$service.*\",condition=\"true\"})","legendFormat":""}]
+    },
+    {
+      "id":2,"gridPos":{"x":6,"y":0,"w":6,"h":4},"type":"stat",
+      "title":"Preview (Green) Pods",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"green"}]}}},
+      "targets":[{"expr":"sum(kube_pod_status_ready{namespace=\"microservices\",pod=~\"$service-preview.*\",condition=\"true\"}) or vector(0)","legendFormat":""}]
+    },
+    {
+      "id":3,"gridPos":{"x":12,"y":0,"w":6,"h":4},"type":"stat",
+      "title":"Active Error Rate %",
+      "options":{"colorMode":"background","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"unit":"percent","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}}},
+      "targets":[{"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"$service\",status=~\"[45]..\"}[2m])) / sum(rate(http_server_requests_seconds_count{app=\"$service\"}[2m]))","legendFormat":""}]
+    },
+    {
+      "id":4,"gridPos":{"x":18,"y":0,"w":6,"h":4},"type":"stat",
+      "title":"Active P95 Latency",
+      "options":{"colorMode":"value","reduceOptions":{"calcs":["lastNotNull"]}},
+      "fieldConfig":{"defaults":{"unit":"ms","color":{"mode":"thresholds"},"thresholds":{"steps":[{"value":0,"color":"green"},{"value":100,"color":"yellow"},{"value":500,"color":"red"}]}}},
+      "targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$service\",uri!~\"/actuator.*\"}[2m]))) * 1000","legendFormat":""}]
+    },
+    {
+      "id":5,"gridPos":{"x":0,"y":4,"w":12,"h":8},"type":"timeseries",
+      "title":"Request Rate: Active vs Preview",
+      "fieldConfig":{"defaults":{"unit":"reqps"}},
+      "targets":[
+        {"expr":"sum(rate(http_server_requests_seconds_count{app=\"$service\",uri!~\"/actuator.*\"}[1m]))","legendFormat":"🔵 Active (Blue)"},
+        {"expr":"sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\",uri!~\"/actuator.*\"}[1m])) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+      ]
+    },
+    {
+      "id":6,"gridPos":{"x":12,"y":4,"w":12,"h":8},"type":"timeseries",
+      "title":"Error Rate: Active vs Preview",
+      "fieldConfig":{"defaults":{"unit":"percent"}},
+      "targets":[
+        {"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"$service\",status=~\"[45]..\"}[1m])) / sum(rate(http_server_requests_seconds_count{app=\"$service\"}[1m]))","legendFormat":"🔵 Active (Blue)"},
+        {"expr":"100 * sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\",status=~\"[45]..\"}[1m])) / sum(rate(http_server_requests_seconds_count{app=\"${service}-preview\"}[1m])) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+      ]
+    },
+    {
+      "id":7,"gridPos":{"x":0,"y":12,"w":12,"h":8},"type":"timeseries",
+      "title":"P95 Latency: Active vs Preview",
+      "fieldConfig":{"defaults":{"unit":"ms"}},
+      "targets":[
+        {"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"$service\",uri!~\"/actuator.*\"}[2m]))) * 1000","legendFormat":"🔵 Active (Blue)"},
+        {"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{app=\"${service}-preview\",uri!~\"/actuator.*\"}[2m]))) * 1000 or vector(0)","legendFormat":"🟢 Preview (Green)"}
+      ]
+    },
+    {
+      "id":8,"gridPos":{"x":12,"y":12,"w":12,"h":8},"type":"timeseries",
+      "title":"JVM Heap: Active vs Preview",
+      "fieldConfig":{"defaults":{"unit":"bytes"}},
+      "targets":[
+        {"expr":"sum(jvm_memory_used_bytes{app=\"$service\",area=\"heap\"})","legendFormat":"🔵 Active (Blue)"},
+        {"expr":"sum(jvm_memory_used_bytes{app=\"${service}-preview\",area=\"heap\"}) or vector(0)","legendFormat":"🟢 Preview (Green)"}
+      ]
+    }
+  ]
+}

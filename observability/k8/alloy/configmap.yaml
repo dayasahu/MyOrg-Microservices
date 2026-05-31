@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: observability
+data:
+  config.alloy: |
+    // ── Logs: discover pods and tail their logs ───────────────────────────────
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    discovery.relabel "pod_logs" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pod_logs.output
+      forward_to = [loki.process.parse_json.receiver]
+    }
+
+    loki.process "parse_json" {
+      stage.json {
+        expressions = {
+          level   = "level",
+          traceId = "traceId",
+        }
+      }
+
+      stage.labels {
+        values = {
+          level   = "",
+          traceId = "",
+        }
+      }
+
+      forward_to = [loki.write.loki.receiver]
+    }
+
+    loki.write "loki" {
+      endpoint {
+        url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+
+    // ── Traces: receive OTLP from services ───────────────────────────────────
+    otelcol.receiver.otlp "default" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+      output {
+        traces = [otelcol.exporter.otlphttp.tempo.input]
+      }
+    }
+
+    otelcol.exporter.otlphttp "tempo" {
+      client {
+        endpoint = "http://tempo.observability.svc.cluster.local:4318"
+        tls {
+          insecure = true
+        }
+      }
+    }
+
+    // ── Metrics: scrape services + forward to Prometheus ─────────────────────
+    prometheus.scrape "spring_services" {
+      targets = [
+        {"__address__" = "employee.microservices.svc.cluster.local:80",     "__metrics_path__" = "/actuator/prometheus", "app" = "employee"},
+        {"__address__" = "department.microservices.svc.cluster.local:80",   "__metrics_path__" = "/actuator/prometheus", "app" = "department"},
+        {"__address__" = "apigateway.microservices.svc.cluster.local:80",   "__metrics_path__" = "/actuator/prometheus", "app" = "apigateway"},
+        {"__address__" = "configserver.microservices.svc.cluster.local:8071", "__metrics_path__" = "/actuator/prometheus", "app" = "configserver"},
+      ]
+      scrape_interval = "15s"
+      forward_to      = [prometheus.remote_write.prometheus.receiver]
+    }
+
+    prometheus.remote_write "prometheus" {
+      endpoint {
+        url = "http://prometheus.observability.svc.cluster.local:9090/api/v1/write"
+      }
+    }
