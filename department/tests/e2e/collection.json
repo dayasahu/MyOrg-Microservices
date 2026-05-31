@@ -1,0 +1,36 @@
+{
+  "info": {
+    "name": "Department Service E2E",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:18081" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Status 200', () => pm.response.to.have.status(200));",
+        "pm.test('Status is UP', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('UP'); });"
+      ]}}],
+      "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" }
+    },
+    {
+      "name": "GET /api/list",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Status 200', () => pm.response.to.have.status(200));",
+        "pm.test('Response time < 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));",
+        "pm.test('Returns array', () => { const b = pm.response.json(); pm.expect(b).to.be.an('array'); pm.expect(b.length).to.be.above(0); });"
+      ]}}],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/list" }
+    },
+    {
+      "name": "GET /api/envmsg",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Status 200', () => pm.response.to.have.status(200));",
+        "pm.test('Body not empty', () => pm.expect(pm.response.text()).to.not.be.empty);"
+      ]}}],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/envmsg" }
+    }
+  ]
+}
