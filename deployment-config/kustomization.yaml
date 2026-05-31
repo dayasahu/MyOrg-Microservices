@@ -1,0 +1,38 @@
+# Deploys the microservices stack + observability to Kubernetes.
+# Run: kubectl apply -k .
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: microservices
+
+resources:
+  # ConfigMaps must exist before configserver can mount them.
+  - config-map-k8/employee/overlays/dev
+  - config-map-k8/department/overlays/dev
+  - config-map-k8/apigateway/overlays/dev
+
+  # Shared secret for auth-service and gateway JWT signing/validation.
+  - auth-service/k8/secret.yaml
+
+  # Config server.
+  - configserver/k8/deployment.yaml
+  - configserver/k8/service.yaml
+
+  # Services that read config from configserver.
+  - employee/k8/deployment.yaml
+  - employee/k8/service.yaml
+  - department/k8/deployment.yaml
+  - department/k8/service.yaml
+  - ms-api-gateway/k8/deployment.yaml
+  - ms-api-gateway/k8/service.yaml
+
+  # Auth service.
+  - auth-service/k8/deployment.yaml
+  - auth-service/k8/service.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: microservices-training
+      environment: dev
+    includeSelectors: true

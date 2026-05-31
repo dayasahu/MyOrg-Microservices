@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modern Microservices Architecture — Course Guide</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d2e; --surface2: #252840; --border: #2e3155;
+    --accent: #6c63ff; --accent2: #00d4aa; --accent3: #ff6b6b; --accent4: #ffd93d;
+    --accent5: #4ecdc4; --text: #e2e8f0; --text-muted: #94a3b8; --text-dim: #64748b;
+    --green: #22c55e; --orange: #f97316; --blue: #3b82f6; --pink: #ec4899;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(15,17,23,.95); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 0; height: 56px; overflow-x: auto; }
+  nav a { color: var(--text-muted); font-size: .82rem; font-weight: 500; padding: .4rem .9rem; border-radius: 6px; white-space: nowrap; transition: all .2s; }
+  nav a:hover, nav a.active { color: var(--text); background: var(--surface2); text-decoration: none; }
+  nav .logo { color: var(--accent); font-weight: 700; font-size: 1rem; margin-right: 1rem; white-space: nowrap; }
+
+  /* LAYOUT */
+  .page { padding-top: 56px; }
+  section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+  section + section { border-top: 1px solid var(--border); }
+
+  /* HERO */
+  .hero { text-align: center; padding: 5rem 2rem 4rem; max-width: 1100px; margin: 0 auto; }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15;
+    background: linear-gradient(135deg, #6c63ff, #00d4aa, #ffd93d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { margin-top: 1rem; color: var(--text-muted); font-size: 1.1rem; max-width: 680px; margin-inline: auto; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin-top: 1.8rem; }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: .3rem .9rem; font-size: .78rem; font-weight: 600; color: var(--text-muted); }
+  .badge.green { border-color: var(--green); color: var(--green); }
+  .badge.blue { border-color: var(--blue); color: var(--blue); }
+  .badge.purple { border-color: var(--accent); color: var(--accent); }
+  .badge.yellow { border-color: var(--accent4); color: var(--accent4); }
+  .badge.teal { border-color: var(--accent2); color: var(--accent2); }
+
+  /* HEADINGS */
+  h2 { font-size: 1.8rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; display: flex; align-items: center; gap: .6rem; }
+  h2 .icon { font-size: 1.4rem; }
+  h3 { font-size: 1.15rem; font-weight: 600; color: var(--accent2); margin: 1.6rem 0 .6rem; }
+  h4 { font-size: .95rem; font-weight: 600; color: var(--accent4); margin: 1rem 0 .4rem; text-transform: uppercase; letter-spacing: .05em; }
+  .section-sub { color: var(--text-muted); margin-bottom: 2rem; font-size: .97rem; }
+
+  /* CARDS */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-top: 1.5rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; transition: border-color .2s, transform .2s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .card-icon { font-size: 1.8rem; margin-bottom: .7rem; }
+  .card h3 { margin-top: 0; font-size: 1rem; color: var(--text); }
+  .card p { font-size: .88rem; color: var(--text-muted); margin-top: .4rem; }
+  .card .tag { display: inline-block; background: var(--surface2); border-radius: 4px; padding: .15rem .5rem; font-size: .74rem; color: var(--accent); margin-top: .5rem; }
+
+  /* CODE */
+  pre { background: #0d1117; border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; overflow-x: auto; font-size: .83rem; line-height: 1.6; margin: 1rem 0; }
+  code { font-family: 'Cascadia Code', 'Fira Code', monospace; }
+  .inline-code { background: var(--surface2); border-radius: 4px; padding: .1rem .4rem; font-size: .85em; color: var(--accent4); font-family: monospace; }
+
+  /* TABLE */
+  .tbl-wrap { overflow-x: auto; margin: 1rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th { background: var(--surface2); color: var(--accent2); font-weight: 600; text-align: left; padding: .7rem 1rem; border-bottom: 2px solid var(--border); }
+  td { padding: .65rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-muted); vertical-align: top; }
+  tr:hover td { background: var(--surface); color: var(--text); }
+
+  /* DIAGRAM CANVAS */
+  .diagram-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; overflow-x: auto; }
+  .diagram-box svg { display: block; margin: 0 auto; }
+
+  /* TABS */
+  .tabs { display: flex; gap: .4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .45rem 1rem; font-size: .85rem; cursor: pointer; color: var(--text-muted); transition: all .2s; }
+  .tab-btn:hover, .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ACCORDION */
+  .accordion { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: .6rem 0; }
+  .acc-header { background: var(--surface); padding: 1rem 1.2rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: .95rem; transition: background .2s; }
+  .acc-header:hover { background: var(--surface2); }
+  .acc-header .arrow { transition: transform .3s; font-size: .7rem; color: var(--text-dim); }
+  .acc-header.open .arrow { transform: rotate(180deg); }
+  .acc-body { display: none; padding: 1.2rem; background: var(--surface); border-top: 1px solid var(--border); font-size: .9rem; color: var(--text-muted); line-height: 1.8; }
+  .acc-body.open { display: block; }
+
+  /* CALLOUT */
+  .callout { border-radius: 10px; padding: 1rem 1.2rem; margin: 1rem 0; font-size: .9rem; display: flex; gap: .8rem; align-items: flex-start; }
+  .callout.info { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.3); }
+  .callout.warn { background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.3); }
+  .callout.success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); }
+  .callout.tip { background: rgba(108,99,255,.1); border: 1px solid rgba(108,99,255,.3); }
+  .callout .ci { font-size: 1.2rem; flex-shrink: 0; margin-top: .1rem; }
+
+  /* STEPPER */
+  .stepper { margin: 1.5rem 0; }
+  .step { display: flex; gap: 1rem; margin-bottom: 1.2rem; }
+  .step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; flex-shrink: 0; margin-top: .15rem; }
+  .step-content h4 { margin: 0 0 .3rem; font-size: .95rem; color: var(--text); text-transform: none; letter-spacing: 0; }
+  .step-content p { font-size: .88rem; color: var(--text-muted); }
+
+  /* CONCERN CARDS */
+  .concern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem; margin-top: 1.5rem; }
+  .concern-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; }
+  .concern-card .cc-header { display: flex; align-items: center; gap: .8rem; margin-bottom: .8rem; }
+  .concern-card .cc-icon { font-size: 1.6rem; }
+  .concern-card .cc-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .concern-card .cc-tag { font-size: .72rem; background: var(--surface2); border-radius: 4px; padding: .15rem .5rem; color: var(--accent2); margin-left: auto; }
+  .concern-card p { font-size: .87rem; color: var(--text-muted); margin-bottom: .6rem; }
+  .concern-card .impl { background: #0d1117; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: .5rem .8rem; font-size: .8rem; color: var(--accent4); font-family: monospace; margin-top: .5rem; }
+
+  /* TRADEOFF TABLE */
+  .tradeoff { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .tradeoff-col { background: var(--surface); border-radius: 10px; padding: 1.2rem; }
+  .tradeoff-col.pro { border-top: 3px solid var(--green); }
+  .tradeoff-col.con { border-top: 3px solid var(--accent3); }
+  .tradeoff-col h4 { color: var(--green); margin-bottom: .6rem; }
+  .tradeoff-col.con h4 { color: var(--accent3); }
+  .tradeoff-col ul { list-style: none; padding: 0; }
+  .tradeoff-col ul li { font-size: .87rem; color: var(--text-muted); padding: .3rem 0; border-bottom: 1px solid var(--border); display: flex; gap: .5rem; }
+  .tradeoff-col ul li:last-child { border-bottom: none; }
+
+  /* PROGRESS PILL */
+  .pill-row { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+  .pill { border-radius: 20px; padding: .25rem .8rem; font-size: .78rem; font-weight: 600; }
+  .pill.p { background: rgba(34,197,94,.15); color: var(--green); }
+  .pill.s { background: rgba(59,130,246,.15); color: var(--blue); }
+  .pill.w { background: rgba(249,115,22,.15); color: var(--orange); }
+
+  /* FLOW CHART LABELS */
+  .flow-label { font-family: 'Segoe UI', sans-serif; }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 3rem 2rem; color: var(--text-dim); font-size: .85rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="logo">🏗 MS Course</span>
+  <a href="#overview">Overview</a>
+  <a href="#setup">Setup</a>
+  <a href="#stack">Tech Stack</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#config">Config</a>
+  <a href="#security">Security</a>
+  <a href="#observability">Observability</a>
+  <a href="#cicd">CI/CD</a>
+  <a href="#crosscutting">Cross-Cutting</a>
+  <a href="#tradeoffs">Trade-offs</a>
+  <a href="#patterns">Patterns</a>
+</nav>
+
+<div class="page">
+
+<!-- HERO -->
+<div class="hero" id="overview">
+  <h1>Modern Microservices Architecture</h1>
+  <p>A hands-on course built from a real, running project — covering every cross-cutting concern that matters in production-grade distributed systems.</p>
+  <div class="badge-row">
+    <span class="badge green">Spring Boot 3.5</span>
+    <span class="badge blue">Java 21</span>
+    <span class="badge purple">Spring Cloud 2025</span>
+    <span class="badge yellow">Kubernetes</span>
+    <span class="badge teal">OpenTelemetry</span>
+    <span class="badge green">Tekton CI/CD</span>
+    <span class="badge blue">Docker</span>
+    <span class="badge purple">JWT Auth</span>
+    <span class="badge yellow">Grafana LGTM</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION: SETUP -->
+<section id="setup">
+  <h2><span class="icon">🚀</span> Environment Setup</h2>
+  <p class="section-sub">Everything you need to run the full stack locally — no JDK required on the host machine.</p>
+
+  <h3>Prerequisites</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-icon">🐳</div><h3>Docker Desktop</h3><p>With Compose v2 enabled. Used to build service images and run the observability stack.</p></div>
+    <div class="card"><div class="card-icon">☸️</div><h3>Kubernetes</h3><p>Any single-node cluster: Docker Desktop K8s, minikube, kind, k3d, or Rancher Desktop.</p></div>
+    <div class="card"><div class="card-icon">🔧</div><h3>kubectl 1.27+</h3><p>Built-in Kustomize support is required (kubectl apply -k).</p></div>
+    <div class="card"><div class="card-icon">🛠️</div><h3>make</h3><p>GNU Make to run the top-level Makefile workflow targets.</p></div>
+    <div class="card"><div class="card-icon">🐙</div><h3>Docker Hub account</h3><p>Images are pushed to <span class="inline-code">dayasahu6077/*</span>. Run <span class="inline-code">docker login</span> first.</p></div>
+    <div class="card"><div class="card-icon">💻</div><h3>No JDK needed</h3><p>All Maven builds happen inside multi-stage Dockerfiles. The host only needs Docker.</p></div>
+  </div>
+
+  <h3>Start Everything — One Command</h3>
+  <div class="callout success"><span class="ci">✅</span><div>The <strong>recommended workflow</strong>: observability runs in Docker Compose, all microservices run in Kubernetes. This mirrors a real production split.</div></div>
+  <pre><code><span style="color:#6c63ff"># One-time network creation</span>
+docker network create observability
+
+<span style="color:#6c63ff"># Full stack up (observability + build + push + K8s deploy)</span>
+make up
+
+<span style="color:#6c63ff"># With a specific image tag</span>
+make up IMAGE_TAG=v1.0.0</code></pre>
+
+  <h3>What <span class="inline-code">make up</span> Does — Step by Step</h3>
+  <div class="stepper">
+    <div class="step"><div class="step-num">1</div><div class="step-content"><h4>obs-up — Start Observability Stack</h4><p>Creates the <span class="inline-code">observability</span> Docker network if it doesn't exist, then launches OTel Collector, Loki, Tempo, Prometheus, and Grafana via Docker Compose.</p></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-content"><h4>build — Build All 5 Docker Images</h4><p>Multi-stage Dockerfiles compile the Maven projects inside Docker. No local JDK needed.</p></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-content"><h4>push — Push Images to Docker Hub</h4><p>All 5 images are pushed with the specified <span class="inline-code">IMAGE_TAG</span>.</p></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-content"><h4>deploy — Apply Kubernetes Manifests</h4><p>Creates the <span class="inline-code">microservices</span> namespace, applies Kustomize manifests, updates deployment images, then waits for all 5 rollouts to complete.</p></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-content"><h4>ingress — Apply Gateway Ingress Rule</h4><p>Applies the API Gateway ingress for <span class="inline-code">api.mybank.com</span>.</p></div></div>
+  </div>
+
+  <h3>Port Reference</h3>
+  <div class="tbl-wrap">
+    <table>
+      <tr><th>Port</th><th>Service</th><th>Runtime</th><th>Purpose</th></tr>
+      <tr><td>8888</td><td>ms-api-gateway</td><td>Kubernetes</td><td>Single entry point for all API traffic</td></tr>
+      <tr><td>9000</td><td>auth-service</td><td>Kubernetes</td><td>JWT token issuance</td></tr>
+      <tr><td>8071</td><td>configserver</td><td>Kubernetes</td><td>Centralized config API</td></tr>
+      <tr><td>8081</td><td>employee</td><td>Kubernetes (direct)</td><td>Employee REST API</td></tr>
+      <tr><td>8082</td><td>department</td><td>Kubernetes (direct)</td><td>Department REST API</td></tr>
+      <tr><td>3000</td><td>Grafana</td><td>Docker Compose</td><td>Dashboards — traces, logs, metrics</td></tr>
+      <tr><td>9090</td><td>Prometheus</td><td>Docker Compose</td><td>Metrics storage &amp; query</td></tr>
+      <tr><td>3200</td><td>Tempo</td><td>Docker Compose</td><td>Distributed trace storage</td></tr>
+      <tr><td>3100</td><td>Loki</td><td>Docker Compose</td><td>Log aggregation</td></tr>
+      <tr><td>4318</td><td>OTel Collector</td><td>Docker Compose</td><td>OTLP HTTP receiver</td></tr>
+    </table>
+  </div>
+
+  <h3>Useful Make Targets</h3>
+  <pre><code>make help       # show all targets with descriptions
+make status     # K8s pods/services + Docker Compose containers
+make health     # run PowerShell health-check script
+make logs       # tail K8s logs (all service pods)
+make down       # delete K8s resources + stop observability
+make obs-up     # start only the observability stack
+make build      # build images without pushing</code></pre>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: TECH STACK -->
+<section id="stack">
+  <h2><span class="icon">🧰</span> Technology Stack</h2>
+  <p class="section-sub">Every technology choice is deliberate. This section explains what each layer is and why it was selected.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('core')">Core Services</button>
+    <button class="tab-btn" onclick="showTab('infra')">Infrastructure</button>
+    <button class="tab-btn" onclick="showTab('obs')">Observability</button>
+    <button class="tab-btn" onclick="showTab('cicd-tab')">CI/CD</button>
+  </div>
+
+  <div id="tab-core" class="tab-panel active">
+    <div class="tbl-wrap"><table>
+      <tr><th>Technology</th><th>Version</th><th>Role</th><th>Why chosen</th></tr>
+      <tr><td>Spring Boot</td><td>3.5.x</td><td>Service framework</td><td>Convention-over-configuration, huge ecosystem, production-ready auto-configuration</td></tr>
+      <tr><td>Java</td><td>21 (LTS)</td><td>Runtime</td><td>Virtual threads (Project Loom), records, pattern matching — modern Java at its best</td></tr>
+      <tr><td>Spring Cloud Config</td><td>2025.0.x</td><td>Centralized config</td><td>Decouples config from code; supports profiles (dev/prod) without rebuilding images</td></tr>
+      <tr><td>Spring Cloud Gateway</td><td>2025.0.x</td><td>API Gateway (reactive)</td><td>Reactive/non-blocking, built-in route predicates, filter chain, integrates with Spring Security</td></tr>
+      <tr><td>Spring WebFlux / WebClient</td><td>3.5.x</td><td>Reactive HTTP client</td><td>Non-blocking inter-service calls; avoids thread-per-request under load</td></tr>
+      <tr><td>Spring Security</td><td>6.x</td><td>Auth framework</td><td>Standard Spring integration; filter chain configurable per service</td></tr>
+      <tr><td>JJWT</td><td>0.12.6</td><td>JWT library</td><td>Battle-tested, fluent API, supports HMAC-SHA256 signing</td></tr>
+      <tr><td>Lombok</td><td>managed</td><td>Boilerplate reduction</td><td>Eliminates getters/setters/constructors; cleaner model classes</td></tr>
+      <tr><td>SpringDoc OpenAPI</td><td>2.8.3</td><td>API docs</td><td>Auto-generates Swagger UI from annotations; no manual spec maintenance</td></tr>
+      <tr><td>H2</td><td>managed</td><td>In-memory DB (employee)</td><td>Zero-config for dev/training; swap for PostgreSQL in prod</td></tr>
+    </table></div>
+  </div>
+
+  <div id="tab-infra" class="tab-panel">
+    <div class="tbl-wrap"><table>
+      <tr><th>Technology</th><th>Role</th><th>Why chosen</th></tr>
+      <tr><td>Docker / Docker Compose</td><td>Container runtime + observability orchestration</td><td>Universal; multi-stage builds keep images small</td></tr>
+      <tr><td>Kubernetes</td><td>Production microservice orchestration</td><td>Industry standard; health probes, rolling deploys, ConfigMaps, Secrets</td></tr>
+      <tr><td>Kustomize</td><td>K8s config layering</td><td>Built into kubectl; base + overlays for dev/prod without Helm templating complexity</td></tr>
+      <tr><td>Docker Hub</td><td>Container registry</td><td>Free tier; accessible from any K8s cluster without auth setup</td></tr>
+    </table></div>
+  </div>
+
+  <div id="tab-obs" class="tab-panel">
+    <div class="tbl-wrap"><table>
+      <tr><th>Technology</th><th>Role</th><th>Why chosen</th></tr>
+      <tr><td>OpenTelemetry (OTel)</td><td>Vendor-neutral telemetry SDK + collector</td><td>Single SDK for traces, metrics, logs; routes to any backend</td></tr>
+      <tr><td>Micrometer</td><td>Metrics facade</td><td>Spring Boot native; bridges to OTel or Prometheus directly</td></tr>
+      <tr><td>Grafana</td><td>Unified dashboard UI</td><td>Single pane of glass for all three signals (logs, traces, metrics)</td></tr>
+      <tr><td>Loki</td><td>Log aggregation</td><td>Label-based, storage-efficient; integrates tightly with Grafana</td></tr>
+      <tr><td>Tempo</td><td>Distributed trace store</td><td>Grafana-native trace backend; deep Loki/Prometheus correlations</td></tr>
+      <tr><td>Prometheus</td><td>Metrics time-series DB</td><td>Industry standard pull-based scraping; huge query language (PromQL)</td></tr>
+      <tr><td>Logstash Logback Encoder</td><td>Structured JSON logs</td><td>Each log line is JSON; carries traceId/spanId for log-to-trace correlation</td></tr>
+    </table></div>
+  </div>
+
+  <div id="tab-cicd-tab" class="tab-panel">
+    <div class="tbl-wrap"><table>
+      <tr><th>Technology</th><th>Role</th><th>Why chosen</th></tr>
+      <tr><td>Tekton Pipelines</td><td>K8s-native CI/CD</td><td>Runs entirely in cluster; Tasks are reusable K8s CRDs; no external CI server needed</td></tr>
+      <tr><td>GitHub Actions</td><td>Cloud CI (employee service)</td><td>Simple trigger on push; builds and pushes Docker image</td></tr>
+      <tr><td>GNU Make</td><td>Local developer workflow</td><td>Portable task runner; single entry point for complex multi-step operations</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: ARCHITECTURE -->
+<section id="architecture">
+  <h2><span class="icon">🏛️</span> Architecture Deep Dive</h2>
+  <p class="section-sub">Five services, two networks, one entry point. Here's how traffic flows end to end.</p>
+
+  <!-- MAIN ARCHITECTURE DIAGRAM -->
+  <div class="diagram-box">
+    <svg viewBox="0 0 900 560" width="900" height="560" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <defs>
+        <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#6c63ff"/>
+        </marker>
+        <marker id="arr2" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#00d4aa"/>
+        </marker>
+        <marker id="arr3" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ffd93d"/>
+        </marker>
+        <linearGradient id="gw" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#6c63ff;stop-opacity:.3"/>
+          <stop offset="100%" style="stop-color:#4ecdc4;stop-opacity:.1"/>
+        </linearGradient>
+        <linearGradient id="obs-g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#00d4aa;stop-opacity:.2"/>
+          <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:.05"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background zones -->
+      <rect x="10" y="80" width="880" height="300" rx="14" fill="#1a1d2e" stroke="#2e3155" stroke-width="1.5"/>
+      <text x="24" y="103" font-family="Segoe UI,sans-serif" font-size="11" fill="#64748b" font-weight="600">KUBERNETES — namespace: microservices</text>
+
+      <rect x="10" y="410" width="880" height="130" rx="14" fill="#0f2a24" stroke="#00d4aa" stroke-width="1" opacity=".8"/>
+      <text x="24" y="433" font-family="Segoe UI,sans-serif" font-size="11" fill="#00d4aa" font-weight="600">DOCKER COMPOSE — observability network</text>
+
+      <!-- Client -->
+      <rect x="370" y="18" width="160" height="44" rx="10" fill="#252840" stroke="#6c63ff" stroke-width="2"/>
+      <text x="450" y="37" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12" fill="#e2e8f0" font-weight="600">🌐 Client / curl</text>
+      <text x="450" y="53" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">localhost:8888</text>
+
+      <!-- Arrow: Client → Gateway -->
+      <line x1="450" y1="62" x2="450" y2="112" stroke="#6c63ff" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- API Gateway -->
+      <rect x="330" y="115" width="240" height="58" rx="10" fill="url(#gw)" stroke="#6c63ff" stroke-width="2"/>
+      <text x="450" y="140" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#e2e8f0" font-weight="700">⚡ ms-api-gateway</text>
+      <text x="450" y="158" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">:8888 · JWT filter · routing</text>
+
+      <!-- Arrow: Gateway → Employee -->
+      <line x1="380" y1="173" x2="230" y2="230" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arr)"/>
+      <text x="285" y="210" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">/employee/**</text>
+
+      <!-- Arrow: Gateway → Department -->
+      <line x1="450" y1="173" x2="450" y2="228" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arr)"/>
+      <text x="458" y="210" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">/department/**</text>
+
+      <!-- Arrow: Gateway → Auth -->
+      <line x1="520" y1="173" x2="670" y2="230" stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#arr)"/>
+      <text x="600" y="210" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">/auth/**</text>
+
+      <!-- Employee service -->
+      <rect x="110" y="233" width="200" height="58" rx="10" fill="#252840" stroke="#ffd93d" stroke-width="1.5"/>
+      <text x="210" y="257" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#ffd93d" font-weight="700">👤 employee</text>
+      <text x="210" y="275" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">:8080 · H2 DB · REST</text>
+
+      <!-- Department service -->
+      <rect x="345" y="233" width="210" height="58" rx="10" fill="#252840" stroke="#4ecdc4" stroke-width="1.5"/>
+      <text x="450" y="257" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#4ecdc4" font-weight="700">🏢 department</text>
+      <text x="450" y="275" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">:8080 · Service layer</text>
+
+      <!-- Auth service -->
+      <rect x="590" y="233" width="200" height="58" rx="10" fill="#252840" stroke="#ff6b6b" stroke-width="1.5"/>
+      <text x="690" y="257" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#ff6b6b" font-weight="700">🔐 auth-service</text>
+      <text x="690" y="275" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">:9000 · JWT issuer</text>
+
+      <!-- WebClient arrow: Employee → Department -->
+      <line x1="310" y1="262" x2="345" y2="262" stroke="#ffd93d" stroke-width="1.5" stroke-dasharray="3" marker-end="url(#arr3)"/>
+      <text x="316" y="256" font-family="Segoe UI,sans-serif" font-size="8" fill="#ffd93d">WebClient</text>
+
+      <!-- Config Server -->
+      <rect x="330" y="325" width="240" height="44" rx="10" fill="#252840" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="450" y="345" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#22c55e" font-weight="700">⚙️ configserver</text>
+      <text x="450" y="361" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">:8071 · Spring Cloud Config</text>
+
+      <!-- Config arrows from services -->
+      <line x1="210" y1="291" x2="370" y2="325" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arr2)"/>
+      <line x1="450" y1="291" x2="450" y2="325" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arr2)"/>
+      <line x1="520" y1="291" x2="520" y2="325" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arr2)"/>
+      <text x="340" y="316" font-family="Segoe UI,sans-serif" font-size="8" fill="#22c55e">config import on startup</text>
+
+      <!-- Observability stack -->
+      <rect x="50" y="445" width="140" height="80" rx="8" fill="#0d1117" stroke="#00d4aa" stroke-width="1"/>
+      <text x="120" y="467" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#00d4aa" font-weight="600">OTel Collector</text>
+      <text x="120" y="483" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">:4318 HTTP</text>
+      <text x="120" y="499" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">routes to backends</text>
+
+      <rect x="220" y="445" width="110" height="80" rx="8" fill="#0d1117" stroke="#3b82f6" stroke-width="1"/>
+      <text x="275" y="487" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#3b82f6" font-weight="600">Prometheus</text>
+      <text x="275" y="503" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">scrapes /actuator</text>
+
+      <rect x="355" y="445" width="110" height="80" rx="8" fill="#0d1117" stroke="#f97316" stroke-width="1"/>
+      <text x="410" y="487" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316" font-weight="600">Loki</text>
+      <text x="410" y="503" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">log storage</text>
+
+      <rect x="490" y="445" width="110" height="80" rx="8" fill="#0d1117" stroke="#ec4899" stroke-width="1"/>
+      <text x="545" y="487" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ec4899" font-weight="600">Tempo</text>
+      <text x="545" y="503" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">trace storage</text>
+
+      <rect x="625" y="445" width="110" height="80" rx="8" fill="#0d1117" stroke="#22c55e" stroke-width="1"/>
+      <text x="680" y="487" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e" font-weight="600">Grafana</text>
+      <text x="680" y="503" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">:3000 dashboards</text>
+
+      <!-- OTLP arrows from services to collector -->
+      <line x1="210" y1="291" x2="120" y2="445" stroke="#00d4aa" stroke-width="1" stroke-dasharray="2,4" opacity=".6" marker-end="url(#arr2)"/>
+      <line x1="450" y1="291" x2="180" y2="445" stroke="#00d4aa" stroke-width="1" stroke-dasharray="2,4" opacity=".6" marker-end="url(#arr2)"/>
+      <line x1="450" y1="369" x2="120" y2="445" stroke="#00d4aa" stroke-width="1" stroke-dasharray="2,4" opacity=".5" marker-end="url(#arr2)"/>
+      <text x="30" y="395" font-family="Segoe UI,sans-serif" font-size="8" fill="#00d4aa">OTLP traces/metrics/logs</text>
+
+      <!-- Collector → backends -->
+      <line x1="190" y1="485" x2="220" y2="485" stroke="#00d4aa" stroke-width="1" marker-end="url(#arr2)"/>
+      <line x1="190" y1="485" x2="355" y2="485" stroke="#00d4aa" stroke-width="1" marker-end="url(#arr2)"/>
+      <line x1="190" y1="485" x2="490" y2="485" stroke="#00d4aa" stroke-width="1" marker-end="url(#arr2)"/>
+
+      <!-- Legend -->
+      <line x1="760" y1="445" x2="790" y2="445" stroke="#6c63ff" stroke-width="2" stroke-dasharray="4"/>
+      <text x="795" y="449" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">HTTP route</text>
+      <line x1="760" y1="462" x2="790" y2="462" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="795" y="466" font-family="Segoe UI,sans-serif" font-size="9" fill="#22c55e">config pull</text>
+      <line x1="760" y1="479" x2="790" y2="479" stroke="#00d4aa" stroke-width="1" stroke-dasharray="2,4"/>
+      <text x="795" y="483" font-family="Segoe UI,sans-serif" font-size="9" fill="#00d4aa">OTLP push</text>
+      <line x1="760" y1="496" x2="790" y2="496" stroke="#ffd93d" stroke-width="1.5" stroke-dasharray="3"/>
+      <text x="795" y="500" font-family="Segoe UI,sans-serif" font-size="9" fill="#ffd93d">WebClient</text>
+    </svg>
+  </div>
+
+  <h3>Service Responsibilities</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3 style="color:#6c63ff">ms-api-gateway</h3>
+      <p>Single entry point at <strong>:8888</strong>. Validates JWT on every request (except <span class="inline-code">/auth/**</span>), strips route prefix, and proxies to the correct downstream service. Reactive (non-blocking).</p>
+      <span class="tag">Spring Cloud Gateway</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">👤</div>
+      <h3 style="color:#ffd93d">employee</h3>
+      <p>REST API for employee data backed by H2. Also calls the department service reactively via <span class="inline-code">WebClient</span> for the <span class="inline-code">/departments</span> endpoint.</p>
+      <span class="tag">Spring MVC + WebFlux</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏢</div>
+      <h3 style="color:#4ecdc4">department</h3>
+      <p>Lightweight REST API returning department data from a service layer. No database. Demonstrates the pure service layer pattern.</p>
+      <span class="tag">Spring MVC</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔐</div>
+      <h3 style="color:#ff6b6b">auth-service</h3>
+      <p>Issues signed JWTs for a given userId. Exposes Swagger UI. Standalone — no configserver dependency, no database (user lookup is a pluggable stub).</p>
+      <span class="tag">Spring Security + JJWT</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚙️</div>
+      <h3 style="color:#22c55e">configserver</h3>
+      <p>Spring Cloud Config Server in <strong>native</strong> profile. Serves property files from the filesystem — mounted as a volume (Docker) or ConfigMap (K8s).</p>
+      <span class="tag">Spring Cloud Config</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: CONFIG -->
+<section id="config">
+  <h2><span class="icon">⚙️</span> Centralized Configuration</h2>
+  <p class="section-sub">One of the most important microservices patterns: externalizing configuration so images are environment-agnostic.</p>
+
+  <div class="callout tip"><span class="ci">💡</span><div><strong>Core principle:</strong> Build once, run anywhere. The Docker image never changes — only the config mounted into it changes between environments.</div></div>
+
+  <h3>Three-Tier Configuration Model</h3>
+  <div class="diagram-box">
+    <svg viewBox="0 0 820 260" width="820" height="260" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <!-- Tier 1 -->
+      <rect x="20" y="20" width="240" height="90" rx="10" fill="#1a1d2e" stroke="#6c63ff" stroke-width="2"/>
+      <text x="140" y="44" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#6c63ff" font-weight="700">TIER 1 — BOOTSTRAP</text>
+      <text x="140" y="62" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">Baked into the JAR</text>
+      <text x="140" y="78" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">application.properties</text>
+      <text x="140" y="94" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#64748b">Min config + configserver URL</text>
+      <text x="140" y="125" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">Lowest priority</text>
+
+      <!-- Arrow 1→2 -->
+      <line x1="260" y1="65" x2="295" y2="65" stroke="#6c63ff" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="262" y="58" font-family="Segoe UI,sans-serif" font-size="8" fill="#94a3b8">pulls at startup</text>
+
+      <!-- Tier 2 -->
+      <rect x="295" y="20" width="240" height="90" rx="10" fill="#1a1d2e" stroke="#22c55e" stroke-width="2"/>
+      <text x="415" y="44" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e" font-weight="700">TIER 2 — RUNTIME</text>
+      <text x="415" y="62" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">Served by configserver</text>
+      <text x="415" y="78" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">Docker: config/props/{svc}/</text>
+      <text x="415" y="94" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">K8s: ConfigMap</text>
+      <text x="415" y="125" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#22c55e">Overrides Tier 1</text>
+
+      <!-- Arrow 2→3 -->
+      <line x1="535" y1="65" x2="570" y2="65" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="537" y="58" font-family="Segoe UI,sans-serif" font-size="8" fill="#94a3b8">env overrides</text>
+
+      <!-- Tier 3 -->
+      <rect x="570" y="20" width="230" height="90" rx="10" fill="#1a1d2e" stroke="#ffd93d" stroke-width="2"/>
+      <text x="685" y="44" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ffd93d" font-weight="700">TIER 3 — ENV VARS</text>
+      <text x="685" y="62" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">Set in docker-compose.yml</text>
+      <text x="685" y="78" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">or K8s Deployment</text>
+      <text x="685" y="94" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#64748b">e.g. SPRING_PROFILES_ACTIVE</text>
+      <text x="685" y="125" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#ffd93d">Highest priority</text>
+
+      <!-- K8s config flow -->
+      <rect x="20" y="160" width="780" height="80" rx="10" fill="#0f2a14" stroke="#22c55e" stroke-width="1" opacity=".8"/>
+      <text x="410" y="185" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e" font-weight="700">KUBERNETES CONFIG FLOW</text>
+      <text x="410" y="205" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">config-map-k8/{svc}/base/{svc}.properties  →  kustomize  →  ConfigMap  →  volumeMount → /config/{svc}  →  configserver native search</text>
+      <text x="410" y="225" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Update config without rebuilding images: edit properties → kubectl apply -k . → rollout restart deployment/{svc}</text>
+    </svg>
+  </div>
+
+  <h3>Profile-Based Config (Dev / Prod)</h3>
+  <pre><code><span style="color:#6c63ff"># configserver serves different files based on active profile:</span>
+config/props/employee/employee.properties       <span style="color:#64748b"># shared / default</span>
+config/props/employee/employee-dev.properties   <span style="color:#22c55e"># active when SPRING_PROFILES_ACTIVE=dev</span>
+config/props/employee/employee-prod.properties  <span style="color:#ff6b6b"># active when SPRING_PROFILES_ACTIVE=prod</span>
+
+<span style="color:#6c63ff"># Services request their config via HTTP on startup:</span>
+GET http://configserver:8071/employee/dev
+<span style="color:#64748b"># → returns merged view: default + dev overrides</span></code></pre>
+
+  <div class="callout warn"><span class="ci">⚠️</span><div><strong>Design decision:</strong> configserver uses the <span class="inline-code">native</span> profile (filesystem), not Git. This is intentional for training simplicity. In production you'd use Spring Cloud Config's Git backend for version-controlled, auditable config changes.</div></div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: SECURITY -->
+<section id="security">
+  <h2><span class="icon">🔐</span> Security — JWT at the Gateway</h2>
+  <p class="section-sub">Authentication is enforced at a single chokepoint — the gateway — rather than scattered across every service.</p>
+
+  <!-- JWT FLOW DIAGRAM -->
+  <div class="diagram-box">
+    <svg viewBox="0 0 820 320" width="820" height="320" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <defs>
+        <marker id="ra" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b"/>
+        </marker>
+        <marker id="ga" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+        </marker>
+      </defs>
+
+      <!-- Step 1: Get token -->
+      <rect x="20" y="40" width="130" height="50" rx="8" fill="#252840" stroke="#ff6b6b" stroke-width="1.5"/>
+      <text x="85" y="62" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ff6b6b" font-weight="700">1. Client</text>
+      <text x="85" y="78" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">POST /auth/token</text>
+
+      <line x1="150" y1="65" x2="260" y2="65" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#ra)"/>
+      <text x="192" y="58" font-family="Segoe UI,sans-serif" font-size="9" fill="#ff6b6b">{"userId":"123"}</text>
+
+      <rect x="260" y="40" width="140" height="50" rx="8" fill="#252840" stroke="#ff6b6b" stroke-width="1.5"/>
+      <text x="330" y="62" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ff6b6b" font-weight="700">auth-service</text>
+      <text x="330" y="78" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">HMAC-SHA256 sign</text>
+
+      <line x1="260" y1="85" x2="150" y2="85" stroke="#22c55e" stroke-width="1.5" marker-end="url(#ga)"/>
+      <text x="162" y="98" font-family="Segoe UI,sans-serif" font-size="9" fill="#22c55e">{"token":"eyJ..."}</text>
+
+      <!-- Step 2: Use token -->
+      <rect x="20" y="160" width="130" height="50" rx="8" fill="#252840" stroke="#6c63ff" stroke-width="1.5"/>
+      <text x="85" y="182" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#6c63ff" font-weight="700">2. Client</text>
+      <text x="85" y="198" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">GET /employee/employees</text>
+
+      <line x1="150" y1="185" x2="290" y2="185" stroke="#6c63ff" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="172" y="178" font-family="Segoe UI,sans-serif" font-size="9" fill="#6c63ff">Bearer eyJ...</text>
+
+      <!-- Gateway JWT validation -->
+      <rect x="290" y="155" width="160" height="60" rx="8" fill="url(#gw)" stroke="#6c63ff" stroke-width="2"/>
+      <text x="370" y="178" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#e2e8f0" font-weight="700">ms-api-gateway</text>
+      <text x="370" y="194" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">JwtAuthenticationFilter</text>
+      <text x="370" y="208" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">verify signature locally</text>
+
+      <!-- Gateway → Employee (valid) -->
+      <line x1="450" y1="185" x2="560" y2="185" stroke="#22c55e" stroke-width="1.5" marker-end="url(#ga)"/>
+      <text x="462" y="178" font-family="Segoe UI,sans-serif" font-size="9" fill="#22c55e">valid → forward</text>
+
+      <rect x="560" y="160" width="130" height="50" rx="8" fill="#252840" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="625" y="182" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e" font-weight="700">employee</text>
+      <text x="625" y="198" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">no auth needed</text>
+
+      <!-- Invalid token path -->
+      <line x1="370" y1="215" x2="370" y2="265" stroke="#ff6b6b" stroke-width="1.5" marker-end="url(#ra)"/>
+      <rect x="290" y="265" width="160" height="36" rx="8" fill="#1a0e0e" stroke="#ff6b6b" stroke-width="1"/>
+      <text x="370" y="283" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#ff6b6b">401 UNAUTHORIZED</text>
+      <text x="354" y="230" font-family="Segoe UI,sans-serif" font-size="8" fill="#ff6b6b">missing/invalid token</text>
+
+      <!-- JWT payload box -->
+      <rect x="560" y="40" width="240" height="100" rx="8" fill="#0d1117" stroke="#ffd93d" stroke-width="1"/>
+      <text x="680" y="60" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ffd93d" font-weight="700">JWT Payload (claims)</text>
+      <text x="580" y="78" font-family="Cascadia Code,monospace" font-size="9" fill="#94a3b8">sub: "12345"</text>
+      <text x="580" y="93" font-family="Cascadia Code,monospace" font-size="9" fill="#94a3b8">username: "John Doe"</text>
+      <text x="580" y="108" font-family="Cascadia Code,monospace" font-size="9" fill="#94a3b8">roles: ["USER"]</text>
+      <text x="580" y="123" font-family="Cascadia Code,monospace" font-size="9" fill="#94a3b8">exp: (now + 24h)</text>
+    </svg>
+  </div>
+
+  <h3>How It Works</h3>
+  <div class="stepper">
+    <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Client requests a token</h4><p><span class="inline-code">POST /auth/token {"userId":"123"}</span> → auth-service looks up user claims, signs a JWT with HMAC-SHA256, returns <span class="inline-code">{"token":"eyJ..."}</span>.</p></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Client calls any API</h4><p>Attaches <span class="inline-code">Authorization: Bearer eyJ...</span> to every request sent to the gateway (<span class="inline-code">:8888</span>).</p></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Gateway validates locally</h4><p><span class="inline-code">JwtAuthenticationFilter</span> (order -1, highest priority) verifies the signature using the shared secret. No network call to auth-service — fast and stateless.</p></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Forward or reject</h4><p>Valid token → request forwarded to the upstream service. Invalid/missing token → <span class="inline-code">401 Unauthorized</span> returned immediately, upstream never sees the request.</p></div></div>
+  </div>
+
+  <h3>Design Rationale</h3>
+  <div class="tradeoff">
+    <div class="tradeoff-col pro"><h4>✅ Strengths</h4><ul>
+      <li><span>🔒</span>Single auth enforcement point — downstream services need no auth code</li>
+      <li><span>⚡</span>Stateless JWT verification — no database or auth-service call per request</li>
+      <li><span>📦</span>Shared secret pattern is simple to understand and implement</li>
+      <li><span>🔑</span>Claims (roles, email, dept) travel with the token for downstream use</li>
+    </ul></div>
+    <div class="tradeoff-col con"><h4>⚠️ Trade-offs</h4><ul>
+      <li><span>🔑</span>Shared secret must be kept in sync between auth-service and gateway</li>
+      <li><span>♻️</span>Tokens can't be revoked before expiry (no token blacklist)</li>
+      <li><span>🔓</span>Internal service-to-service calls (employee → department) are unauthenticated</li>
+      <li><span>🧪</span>UserLookupService is a stub — any userId gets a valid token</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: OBSERVABILITY -->
+<section id="observability">
+  <h2><span class="icon">📡</span> Observability — The Three Pillars</h2>
+  <p class="section-sub">Metrics, logs, and traces are all collected and correlated. Find any request's full journey in Grafana.</p>
+
+  <div class="diagram-box">
+    <svg viewBox="0 0 820 280" width="820" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <!-- Services -->
+      <rect x="20" y="20" width="120" height="44" rx="8" fill="#252840" stroke="#ffd93d" stroke-width="1.5"/>
+      <text x="80" y="42" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ffd93d">employee</text>
+      <text x="80" y="56" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Micrometer+OTel</text>
+
+      <rect x="160" y="20" width="120" height="44" rx="8" fill="#252840" stroke="#4ecdc4" stroke-width="1.5"/>
+      <text x="220" y="42" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#4ecdc4">department</text>
+      <text x="220" y="56" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Micrometer+OTel</text>
+
+      <rect x="300" y="20" width="120" height="44" rx="8" fill="#252840" stroke="#6c63ff" stroke-width="1.5"/>
+      <text x="360" y="42" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#6c63ff">gateway</text>
+      <text x="360" y="56" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Micrometer+OTel</text>
+
+      <rect x="440" y="20" width="120" height="44" rx="8" fill="#252840" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="500" y="42" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e">configserver</text>
+      <text x="500" y="56" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Micrometer+OTel</text>
+
+      <!-- OTLP arrows to collector -->
+      <line x1="80" y1="64" x2="200" y2="130" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <line x1="220" y1="64" x2="220" y2="130" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <line x1="360" y1="64" x2="250" y2="130" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <line x1="500" y1="64" x2="280" y2="130" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="290" y="100" font-family="Segoe UI,sans-serif" font-size="9" fill="#00d4aa">OTLP HTTP :4318</text>
+      <text x="290" y="113" font-family="Segoe UI,sans-serif" font-size="9" fill="#00d4aa">traces + logs + metrics</text>
+
+      <!-- Prometheus pull -->
+      <rect x="580" y="20" width="220" height="44" rx="8" fill="#0d1117" stroke="#f97316" stroke-width="1"/>
+      <text x="690" y="42" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316">Prometheus scrape</text>
+      <text x="690" y="56" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">GET /actuator/prometheus</text>
+      <line x1="580" y1="42" x2="440" y2="42" stroke="#f97316" stroke-width="1" stroke-dasharray="4" marker-end="url(#arr3)"/>
+
+      <!-- OTel Collector -->
+      <rect x="130" y="133" width="180" height="54" rx="8" fill="#0f2a24" stroke="#00d4aa" stroke-width="2"/>
+      <text x="220" y="157" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12" fill="#00d4aa" font-weight="700">OTel Collector</text>
+      <text x="220" y="175" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">receive → process → export</text>
+
+      <!-- Collector → backends -->
+      <line x1="130" y1="165" x2="80" y2="215" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <line x1="220" y1="187" x2="220" y2="215" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <line x1="310" y1="165" x2="370" y2="215" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#arr2)"/>
+
+      <!-- Backends -->
+      <rect x="20" y="218" width="110" height="44" rx="8" fill="#0d1117" stroke="#f97316" stroke-width="1"/>
+      <text x="75" y="240" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316">Prometheus</text>
+      <text x="75" y="254" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">metrics</text>
+
+      <rect x="160" y="218" width="110" height="44" rx="8" fill="#0d1117" stroke="#f97316" stroke-width="1"/>
+      <text x="215" y="240" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316">Loki</text>
+      <text x="215" y="254" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">logs</text>
+
+      <rect x="300" y="218" width="110" height="44" rx="8" fill="#0d1117" stroke="#f97316" stroke-width="1"/>
+      <text x="355" y="240" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316">Tempo</text>
+      <text x="355" y="254" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">traces</text>
+
+      <!-- Grafana queries all -->
+      <rect x="540" y="140" width="260" height="120" rx="10" fill="#0d1117" stroke="#22c55e" stroke-width="2"/>
+      <text x="670" y="165" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="13" fill="#22c55e" font-weight="700">📊 Grafana :3000</text>
+      <text x="670" y="182" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">Datasource: Prometheus → PromQL</text>
+      <text x="670" y="197" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">Datasource: Loki → LogQL</text>
+      <text x="670" y="212" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">Datasource: Tempo → TraceQL</text>
+      <text x="670" y="232" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#22c55e" font-weight="600">Click traceId in log → jump to trace</text>
+      <text x="670" y="248" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#22c55e" font-weight="600">Click span → correlated logs</text>
+
+      <line x1="75" y1="218" x2="540" y2="200" stroke="#22c55e" stroke-width="1" stroke-dasharray="3"/>
+      <line x1="215" y1="218" x2="540" y2="210" stroke="#22c55e" stroke-width="1" stroke-dasharray="3"/>
+      <line x1="355" y1="218" x2="540" y2="220" stroke="#22c55e" stroke-width="1" stroke-dasharray="3"/>
+    </svg>
+  </div>
+
+  <h3>Trace ID in Every Log Line</h3>
+  <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:.8rem">The Logback pattern injects the current OTel trace context into every log message automatically:</p>
+  <pre><code><span style="color:#6c63ff"># logback-spring.xml pattern</span>
+logging.pattern.level=%5p [<span style="color:#ffd93d">${spring.application.name}</span>,<span style="color:#00d4aa">%X{traceId:-}</span>,<span style="color:#ff6b6b">%X{spanId:-}</span>]
+
+<span style="color:#6c63ff"># Example log output:</span>
+ INFO [<span style="color:#ffd93d">employee</span>,<span style="color:#00d4aa">4bf92f3577b34da6a3ce929d0e0e4736</span>,<span style="color:#ff6b6b">00f067aa0ba902b7</span>] Returning employees: [...]
+        ↑ service name    ↑ traceId (same across all services)    ↑ spanId (unique per service hop)</code></pre>
+
+  <div class="callout success"><span class="ci">✅</span><div><strong>Correlation superpower:</strong> When a request flows Client → Gateway → Employee → Department, all four log lines share the same <span class="inline-code">traceId</span>. In Grafana, search Loki for the traceId and you see all four service logs. Click the traceId and Tempo shows you the exact timing of each service hop.</div></div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: CI/CD -->
+<section id="cicd">
+  <h2><span class="icon">🔄</span> CI/CD — Tekton In-Cluster Pipelines</h2>
+  <p class="section-sub">CI/CD runs inside the same Kubernetes cluster. No external Jenkins, no GitHub Actions runners — just K8s-native Tasks and Pipelines.</p>
+
+  <div class="diagram-box">
+    <svg viewBox="0 0 820 180" width="820" height="180" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <defs>
+        <marker id="ba" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+        </marker>
+      </defs>
+      <!-- Pipeline steps -->
+      <rect x="20" y="60" width="110" height="60" rx="8" fill="#252840" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="75" y="85" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#3b82f6">📥</text>
+      <text x="75" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">git-clone</text>
+      <text x="75" y="114" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Task</text>
+
+      <line x1="130" y1="90" x2="155" y2="90" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ba)"/>
+
+      <rect x="155" y="60" width="110" height="60" rx="8" fill="#252840" stroke="#f97316" stroke-width="1.5"/>
+      <text x="210" y="85" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#f97316">🔨</text>
+      <text x="210" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">maven-build</text>
+      <text x="210" y="114" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Task (mvn package)</text>
+
+      <line x1="265" y1="90" x2="290" y2="90" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ba)"/>
+
+      <rect x="290" y="60" width="110" height="60" rx="8" fill="#252840" stroke="#ec4899" stroke-width="1.5"/>
+      <text x="345" y="85" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#ec4899">🐳</text>
+      <text x="345" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">docker-push</text>
+      <text x="345" y="114" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Task → Docker Hub</text>
+
+      <line x1="400" y1="90" x2="425" y2="90" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ba)"/>
+
+      <!-- Manual approval gate -->
+      <rect x="425" y="50" width="120" height="80" rx="8" fill="#2a1a00" stroke="#ffd93d" stroke-width="2"/>
+      <text x="485" y="80" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="18">⏸️</text>
+      <text x="485" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#ffd93d" font-weight="700">MANUAL GATE</text>
+      <text x="485" y="116" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#94a3b8">human approval</text>
+
+      <line x1="545" y1="90" x2="570" y2="90" stroke="#ffd93d" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+      <rect x="570" y="60" width="110" height="60" rx="8" fill="#252840" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="625" y="85" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#22c55e">☸️</text>
+      <text x="625" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">kubectl-deploy</text>
+      <text x="625" y="114" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">Task → set image</text>
+
+      <line x1="680" y1="90" x2="705" y2="90" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ba)"/>
+
+      <rect x="705" y="60" width="95" height="60" rx="8" fill="#252840" stroke="#6c63ff" stroke-width="1.5"/>
+      <text x="752" y="85" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#6c63ff">✅</text>
+      <text x="752" y="100" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">rollout</text>
+      <text x="752" y="114" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">watch status</text>
+
+      <!-- Trigger -->
+      <text x="410" y="25" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="10" fill="#94a3b8">Triggered by: GitHub webhook → Tekton EventListener → TriggerTemplate → PipelineRun</text>
+      <text x="410" y="160" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="9" fill="#64748b">All steps run as Pods inside the cluster. ServiceAccounts control RBAC for Docker push and kubectl deploy.</text>
+    </svg>
+  </div>
+
+  <h3>Pipeline Components</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Component</th><th>File</th><th>Purpose</th></tr>
+    <tr><td>task-git-clone</td><td>tekton/task-git-clone.yaml</td><td>Clones the repo into a shared workspace PVC</td></tr>
+    <tr><td>task-maven-build</td><td>tekton/task-maven-build.yaml</td><td>Runs <span class="inline-code">mvn clean package -DskipTests</span> inside the cluster</td></tr>
+    <tr><td>task-docker-build-push</td><td>tekton/task-docker-build-push.yaml</td><td>Builds and pushes image to Docker Hub using ServiceAccount with Docker credentials</td></tr>
+    <tr><td>task-generate-version</td><td>tekton/task-generate-version.yaml</td><td>Generates a deterministic image tag from git SHA or timestamp</td></tr>
+    <tr><td>task-kubectl-deploy</td><td>tekton/task-kubectl-deploy.yaml</td><td>Runs <span class="inline-code">kubectl set image</span> and waits for rollout</td></tr>
+    <tr><td>manual-approval-pipelinerun</td><td>tekton/manual-approval-pipelinerun.yaml</td><td>Human must approve before the deploy step runs</td></tr>
+    <tr><td>eventlistener-github</td><td>tekton/eventlistener-github.yaml</td><td>Receives GitHub push webhooks and triggers a PipelineRun</td></tr>
+  </table></div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: CROSS-CUTTING -->
+<section id="crosscutting">
+  <h2><span class="icon">🔗</span> Cross-Cutting Concerns</h2>
+  <p class="section-sub">These are the concerns every microservice must solve, regardless of its domain logic. This project shows concrete solutions for each.</p>
+
+  <div class="concern-grid">
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🔐</span><span class="cc-title">Authentication &amp; Authorization</span><span class="cc-tag">Gateway</span></div>
+      <p>Every request is authenticated at the API Gateway using JWT. Downstream services are inside the cluster and trust the gateway.</p>
+      <div class="impl">JwtAuthenticationFilter implements GlobalFilter, Ordered (order=-1)</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">⚙️</span><span class="cc-title">Externalized Configuration</span><span class="cc-tag">configserver</span></div>
+      <p>Zero config in images. All runtime config served by Spring Cloud Config Server. Profiles support dev/prod without rebuilding.</p>
+      <div class="impl">SPRING_CONFIG_IMPORT=optional:configserver:http://configserver:8071</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">📊</span><span class="cc-title">Metrics</span><span class="cc-tag">Micrometer + Prometheus</span></div>
+      <p>JVM, HTTP, and custom metrics exposed at <span class="inline-code">/actuator/prometheus</span>. Prometheus scrapes all services. Grafana dashboards visualise them.</p>
+      <div class="impl">management.endpoints.web.exposure.include=prometheus</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🔍</span><span class="cc-title">Distributed Tracing</span><span class="cc-tag">OTel + Tempo</span></div>
+      <p>100% trace sampling in dev. Each request gets a traceId that propagates across service hops via HTTP headers. Stored in Tempo, queryable in Grafana.</p>
+      <div class="impl">management.tracing.sampling.probability=1.0</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">📝</span><span class="cc-title">Structured Logging</span><span class="cc-tag">Logback + Loki</span></div>
+      <p>All logs are JSON-structured, include service name, traceId, and spanId. Shipped to Loki via OTel collector. Correlated with traces in Grafana.</p>
+      <div class="impl">[${spring.application.name},%X{traceId:-},%X{spanId:-}]</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">❤️</span><span class="cc-title">Health Checks</span><span class="cc-tag">Spring Actuator</span></div>
+      <p>Liveness and readiness probes exposed at <span class="inline-code">/actuator/health/liveness</span> and <span class="inline-code">/actuator/health/readiness</span>. K8s uses these for pod lifecycle management.</p>
+      <div class="impl">management.endpoint.health.probes.enabled=true</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🚪</span><span class="cc-title">API Gateway / Edge Routing</span><span class="cc-tag">Spring Cloud Gateway</span></div>
+      <p>Single entry point routes all traffic. StripPrefix filter removes the service prefix before forwarding. Clients never know internal URLs.</p>
+      <div class="impl">Path=/employee/** → StripPrefix=1 → employee:8080/api/...</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🔄</span><span class="cc-title">Service-to-Service Communication</span><span class="cc-tag">WebClient</span></div>
+      <p>Non-blocking reactive HTTP via WebClient. Employee calls Department without blocking a thread. Uses Kubernetes DNS service names for discovery.</p>
+      <div class="impl">webClient.get().uri("http://department/api/list")</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🌍</span><span class="cc-title">Environment Isolation</span><span class="cc-tag">Docker networks</span></div>
+      <p>Two separate Docker networks: <span class="inline-code">dsnetwork</span> (service traffic) and <span class="inline-code">observability</span> (telemetry). Services join both; the observability stack only joins the observability network.</p>
+      <div class="impl">networks: [dsnetwork, observability]</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">📦</span><span class="cc-title">Container Build &amp; Image Management</span><span class="cc-tag">Docker multi-stage</span></div>
+      <p>Multi-stage Dockerfiles: stage 1 compiles with Maven inside Docker (no JDK on host), stage 2 copies only the JAR into a minimal JRE image.</p>
+      <div class="impl">FROM maven:3.9 AS build → FROM eclipse-temurin:21-jre</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">🔁</span><span class="cc-title">CI/CD Pipeline</span><span class="cc-tag">Tekton + GitHub Actions</span></div>
+      <p>Tekton runs build→test→push→approve→deploy entirely inside K8s. GitHub Actions provides cloud CI for the employee service on push.</p>
+      <div class="impl">employee/k8/tekton/pipeline-employee-ci-cd.yaml</div>
+    </div>
+
+    <div class="concern-card">
+      <div class="cc-header"><span class="cc-icon">📋</span><span class="cc-title">API Documentation</span><span class="cc-tag">SpringDoc OpenAPI</span></div>
+      <p>auth-service auto-generates Swagger UI from <span class="inline-code">@Operation</span> annotations. Try-it-out allows testing token generation directly in the browser.</p>
+      <div class="impl">springdoc-openapi-starter-webmvc-ui 2.8.3 → /swagger-ui.html</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: TRADE-OFFS -->
+<section id="tradeoffs">
+  <h2><span class="icon">⚖️</span> Design Decisions &amp; Trade-offs</h2>
+  <p class="section-sub">Every architecture choice has a cost. Here's why these decisions were made and what you give up.</p>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>🔧 Spring Cloud Config Server (native/filesystem) vs Git backend</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Native profile reading from mounted filesystem.<br><br>
+      <strong>Why:</strong> Simpler setup for learning — no git repository needed for config. The Docker volume mount or K8s ConfigMap replace the git repo transparently.<br><br>
+      <strong>Trade-off:</strong> No version history for config changes, no pull-request workflow for config updates, no rollback by git revert. In production you'd use the Git backend for auditability and rollback capability.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>🔐 Stateless JWT validation at gateway vs introspection/session</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Gateway validates JWT locally with the shared secret. No call to auth-service per request.<br><br>
+      <strong>Why:</strong> Zero added latency per request, no single point of failure on the auth-service for every API call, horizontally scalable gateway.<br><br>
+      <strong>Trade-off:</strong> Tokens cannot be revoked before expiry (24h by default). A compromised token stays valid until expiry. Production mitigations: shorter expiry, token rotation, Redis-based blacklist, or switch to OAuth2/OIDC with introspection.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>☸️ Kubernetes for services + Docker Compose for observability</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Hybrid — microservices in K8s, observability in Docker Compose.<br><br>
+      <strong>Why:</strong> K8s teaches the real deployment patterns (ConfigMaps, Secrets, Ingress, rolling deploys). But Loki/Tempo/Prometheus/Grafana Helm charts add significant complexity for a training environment. Docker Compose runs them quickly and reliably.<br><br>
+      <strong>Trade-off:</strong> The observability stack is not highly available and has no K8s lifecycle management. For a production cluster you'd deploy the LGTM stack to K8s using the official Helm charts or the Grafana Operator.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>📡 OTel push (OTLP) vs Prometheus pull for metrics</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Both — metrics are pushed via OTLP to the collector AND exposed via <span class="inline-code">/actuator/prometheus</span> for Prometheus to scrape.<br><br>
+      <strong>Why:</strong> Demonstrates both models. The OTLP push path works in K8s without needing to configure Prometheus scrape targets. The Prometheus pull endpoint is a fallback and useful for local testing with <span class="inline-code">curl</span>.<br><br>
+      <strong>Trade-off:</strong> Slight duplication — the same metric reaches Prometheus via two paths. In production, pick one and stick to it.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>🗄️ H2 in-memory database vs persistent database</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> H2 in-memory for the employee service.<br><br>
+      <strong>Why:</strong> Zero setup — no PostgreSQL pod needed. The learning focus is architecture patterns, not data persistence.<br><br>
+      <strong>Trade-off:</strong> All data is lost on pod restart. Cannot run multiple replicas of employee (each would have its own empty DB). For production: swap H2 for PostgreSQL, add a PersistentVolumeClaim, and handle database migrations with Flyway or Liquibase.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>⚡ Spring MVC + WebFlux together in employee service</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Both <span class="inline-code">spring-boot-starter-web</span> (servlet) and <span class="inline-code">spring-boot-starter-webflux</span> (reactive) in the same service.<br><br>
+      <strong>Why:</strong> WebClient (from WebFlux) is the recommended non-blocking HTTP client for Spring — even in a servlet app. Having webflux on the classpath enables it without switching the entire app to reactive.<br><br>
+      <strong>Trade-off:</strong> Mixed paradigms are confusing. The <span class="inline-code">/departments</span> endpoint returns <span class="inline-code">Mono&lt;String&gt;</span> inside a blocking MVC controller. Spring MVC handles this correctly in 3.x but it signals inconsistency. Clean solution: go fully reactive (WebFlux only) or call <span class="inline-code">.block()</span> explicitly.
+    </div>
+  </div>
+
+  <div class="accordion">
+    <div class="acc-header" onclick="toggleAcc(this)"><span>🔗 Kustomize vs Helm for K8s config management</span><span class="arrow">▼</span></div>
+    <div class="acc-body">
+      <strong>Chosen:</strong> Kustomize (base + overlays).<br><br>
+      <strong>Why:</strong> Built into <span class="inline-code">kubectl</span> (no extra tools), simpler mental model for beginners — you patch YAML rather than template it. Base + overlays maps cleanly to the dev/prod distinction.<br><br>
+      <strong>Trade-off:</strong> Kustomize has no package management, no versioned chart releases, no dependency graph. For complex multi-team environments with many shared components, Helm's packaging model scales better.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ SECTION: PATTERNS -->
+<section id="patterns">
+  <h2><span class="icon">🎨</span> Microservices Patterns Applied</h2>
+  <p class="section-sub">Each pattern solves a specific distributed systems problem. Here's the catalogue of patterns in this project.</p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>Pattern</th><th>Problem Solved</th><th>Implementation in this project</th></tr>
+    <tr><td><strong>API Gateway</strong></td><td>Clients need one stable entry point; services change independently</td><td>ms-api-gateway routes /employee/**, /department/**, /auth/**</td></tr>
+    <tr><td><strong>Externalized Config</strong></td><td>Config differs by environment; should not be in the image</td><td>Spring Cloud Config Server + native profile + Docker volumes / K8s ConfigMaps</td></tr>
+    <tr><td><strong>Database per Service</strong></td><td>Services must be independently deployable and scalable</td><td>Employee owns its H2 DB; Department has no DB; no shared schema</td></tr>
+    <tr><td><strong>Token-based Security (JWT)</strong></td><td>Stateless, horizontally scalable authentication</td><td>auth-service issues tokens; gateway validates on every request</td></tr>
+    <tr><td><strong>Health Check API</strong></td><td>Orchestrator needs to know if a service is alive and ready</td><td>Spring Actuator liveness + readiness probes; K8s Deployment spec uses them</td></tr>
+    <tr><td><strong>Distributed Tracing</strong></td><td>Track a request across multiple services for debugging</td><td>Micrometer + OTel bridge; traceId propagated in HTTP headers; stored in Tempo</td></tr>
+    <tr><td><strong>Log Aggregation</strong></td><td>Logs scattered across pods; need central search</td><td>Structured JSON logs → OTel collector → Loki; correlated by traceId</td></tr>
+    <tr><td><strong>Service Registry / Discovery</strong></td><td>Services need to find each other without hardcoded IPs</td><td>Kubernetes DNS (service names) — <span class="inline-code">http://department:8080</span> resolves via kube-dns</td></tr>
+    <tr><td><strong>Sidecar / Agent (log)</strong></td><td>Collect logs without code changes in services</td><td>ms-log-agent: separate Python agent reads logs and forwards to observability stack</td></tr>
+    <tr><td><strong>Pipeline as Code</strong></td><td>CI/CD should be version-controlled and repeatable</td><td>Tekton Tasks and Pipelines are YAML in the repo; triggered by Git webhooks</td></tr>
+    <tr><td><strong>Canary / Blue-Green (via K8s)</strong></td><td>Deploy new versions without downtime</td><td>kubectl set image + rollout status; foundation for canary with K8s traffic splitting</td></tr>
+    <tr><td><strong>Reactive / Non-blocking</strong></td><td>High concurrency without thread explosion</td><td>Spring Cloud Gateway (fully reactive) + WebClient in employee service</td></tr>
+  </table></div>
+
+  <div class="callout info"><span class="ci">📚</span><div><strong>What's NOT in this project (yet):</strong> Circuit breaker / bulkhead (Resilience4j), service mesh (Istio/Linkerd), message broker / event-driven (Kafka/RabbitMQ), distributed cache (Redis), rate limiting at the gateway, and mTLS for service-to-service calls. These are the natural next steps.</div></div>
+
+  <h3>Learning Path Recommendation</h3>
+  <div class="stepper">
+    <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Start Here — Run the Stack</h4><p>Run <span class="inline-code">make up</span>, open Grafana at :3000, generate traffic, and trace a request end-to-end. Understand what you're looking at before diving into code.</p></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Understand Config Flow</h4><p>Change a property in <span class="inline-code">config/props/employee/employee.properties</span>, run <span class="inline-code">kubectl rollout restart</span>, and watch the service pick it up without rebuilding the image.</p></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Understand JWT Auth</h4><p>Use Swagger UI at :9000 to get a token. Call the gateway with and without the token. Read <span class="inline-code">JwtAuthenticationFilter.java</span> line by line.</p></div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Break and Observe</h4><p>Stop the department service. Watch the employee service's <span class="inline-code">/departments</span> endpoint fail. See the error in Grafana logs. This is how you learn failure modes.</p></div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-content"><h4>Add a Circuit Breaker</h4><p>Add Resilience4j to the employee service's WebClient call to department. Now the failure returns a fallback response instead of an error. This is the natural next chapter.</p></div></div>
+  </div>
+</section>
+
+<footer>
+  <p>Built as a training resource for modern microservices architecture · Spring Boot 3.5 · Java 21 · Kubernetes · OpenTelemetry</p>
+  <p style="margin-top:.5rem; color: var(--text-dim);">Project: microservices-training · Registry: dayasahu6077</p>
+</footer>
+
+</div><!-- /page -->
+
+<script>
+// Tab switching
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Accordion
+function toggleAcc(header) {
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.acc-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.acc-header').forEach(h => h.classList.remove('open'));
+  if (!isOpen) {
+    body.classList.add('open');
+    header.classList.add('open');
+  }
+}
+
+// Active nav on scroll
+const sections = document.querySelectorAll('section[id], .hero[id]');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+</body>
+</html>
