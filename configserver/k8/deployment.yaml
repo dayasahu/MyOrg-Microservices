@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configserver
+  labels:
+    app: configserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: configserver
+  template:
+    metadata:
+      labels:
+        app: configserver
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8071"
+    spec:
+      containers:
+        - name: configserver
+          image: dayasahu6077/configserver:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8071
+          env:
+            # Force the in-container port to 8071 regardless of what the
+            # jar's application.properties might say (local dev uses 8072).
+            - name: SERVER_PORT
+              value: "8071"
+            - name: SPRING_PROFILES_ACTIVE
+              value: native
+            # All directories where configserver should look for .properties files.
+            # Each one is a ConfigMap mounted from config-map-k8/.
+            - name: SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS
+              value: file:/config/employee,file:/config/apigateway,file:/config/department
+            - name: OTEL_TRACES_ENDPOINT
+              value: http://alloy.observability.svc.cluster.local:4318/v1/traces
+            - name: OTEL_METRICS_ENDPOINT
+              value: http://alloy.observability.svc.cluster.local:4318/v1/metrics
+          volumeMounts:
+            - name: employee-config
+              mountPath: /config/employee
+              readOnly: true
+            - name: apigateway-config
+              mountPath: /config/apigateway
+              readOnly: true
+            - name: department-config
+              mountPath: /config/department
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "384Mi"
+            limits:
+              cpu: "500m"
+              memory: "768Mi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8071
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8071
+            initialDelaySeconds: 40
+            periodSeconds: 20
+      volumes:
+        - name: employee-config
+          configMap:
+            name: employee-config
+        - name: apigateway-config
+          configMap:
+            name: apigateway-config
+        - name: department-config
+          configMap:
+            name: department-config
