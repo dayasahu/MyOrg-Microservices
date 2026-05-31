@@ -1,0 +1,13 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: maven-build
+spec:
+  workspaces:
+    - name: source
+  steps:
+    - name: build
+      image: maven:3.9.6-eclipse-temurin-21
+      workingDir: $(workspaces.source.path)
+      command: ["mvn"]
+      args: ["clean", "package", "-DskipTests"]

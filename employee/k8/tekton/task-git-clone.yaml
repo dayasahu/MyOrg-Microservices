@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-clone
+spec:
+  params:
+    - name: url
+    - name: revision
+      default: master
+  workspaces:
+    - name: output
+  steps:
+    - name: clone
+      image: docker.io/alpine/git:2.43.0
+      imagePullPolicy: IfNotPresent
+      script: |
+        git clone -b $(params.revision) $(params.url) $(workspaces.output.path)

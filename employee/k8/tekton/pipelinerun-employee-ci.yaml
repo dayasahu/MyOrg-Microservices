@@ -1,0 +1,26 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: employee-ci-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: tekton-ci-sa
+  pipelineRef:
+    name: employee-ci
+  params:
+    - name: GIT_URL
+      value: https://github.com/dayasahu/employee.git
+    - name: GIT_REVISION
+      value: master
+    - name: IMAGE
+      value: dayasahu6077/employee
+    - name: VERSION_PREFIX
+      value: ""
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi

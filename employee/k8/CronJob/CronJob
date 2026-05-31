@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: call-envmsg-api
+spec:
+  schedule: "0 10 * * *" # Runs once a day at 10:00 AM
+  timeZone: Asia/Kolkata        # IST
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: api-call
+              image: curlimages/curl:8.6.0
+              args:
+                - --fail
+                - --show-error
+                - --max-time
+                - "30"
+                - -X
+                - GET
+                - https://api.mybank.com/employee/api/envmsg

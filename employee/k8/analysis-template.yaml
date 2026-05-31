@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: smoke-test
+spec:
+  args:
+    - name: preview-url
+  metrics:
+    - name: health-check
+      # Run 3 times, 10s apart — all must return UP
+      count: 3
+      interval: 10s
+      failureLimit: 1
+      successCondition: result == "UP"
+      provider:
+        web:
+          url: "{{args.preview-url}}/actuator/health/readiness"
+          jsonPath: "{$.status}"

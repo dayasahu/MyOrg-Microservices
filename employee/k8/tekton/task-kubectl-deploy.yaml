@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kubectl-deploy
+spec:
+  params:
+    - name: DEPLOYMENT_NAME
+    - name: CONTAINER_NAME
+    - name: IMAGE
+    - name: NAMESPACE
+      default: default
+  steps:
+    - name: deploy
+      image: bitnami/kubectl:latest
+      script: |
+        echo "Deploying image $(params.IMAGE)"
+        kubectl set image deployment/$(params.DEPLOYMENT_NAME) \
+          $(params.CONTAINER_NAME)=$(params.IMAGE) \
+          -n $(params.NAMESPACE)
+
+        kubectl rollout status deployment/$(params.DEPLOYMENT_NAME) \
+          -n $(params.NAMESPACE)

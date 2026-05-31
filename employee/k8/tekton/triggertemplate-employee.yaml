@@ -1,0 +1,34 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: employee-trigger-template
+spec:
+  params:
+    - name: git-repo-url
+    - name: git-revision
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: employee-ci-run-
+      spec:
+        serviceAccountName: tekton-ci-sa
+        pipelineRef:
+          name: employee-ci
+        params:
+          - name: GIT_URL
+            value: $(tt.params.git-repo-url)
+          - name: GIT_REVISION
+            value: $(tt.params.git-revision)
+          - name: IMAGE
+            value: dayasahu6077/employee
+          - name: VERSION
+            value: $(uid)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 1Gi

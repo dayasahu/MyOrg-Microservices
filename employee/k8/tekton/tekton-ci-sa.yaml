@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tekton-ci-sa
+  namespace: tekton-pipelines
+imagePullSecrets:
+  - name: dockerhub-secret

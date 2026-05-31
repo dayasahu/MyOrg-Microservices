@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: docker-build-push
+spec:
+  params:
+    - name: IMAGE
+    - name: VERSION
+  workspaces:
+    - name: source
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:latest
+      env:
+        - name: DOCKER_CONFIG
+          value: /kaniko/.docker
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+          readOnly: true
+      args:
+        - --dockerfile=Dockerfile
+        - --context=$(workspaces.source.path)
+        - --destination=$(params.IMAGE):$(params.VERSION)
+        - --destination=$(params.IMAGE):latest
+  volumes:
+    - name: docker-config
+      secret:
+        secretName: dockerhub-secret
+        items:
+          - key: .dockerconfigjson
+            path: config.json

@@ -1,0 +1,37 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: generate-version
+spec:
+  params:
+    - name: prefix
+      default: ""
+  workspaces:
+    - name: source
+  results:
+    - name: version
+      description: Generated build version (timestamp + short git sha)
+  steps:
+    - name: generate
+      image: alpine:3.20
+      workingDir: $(workspaces.source.path)
+      script: |
+        set -eu
+
+        TS=$(date -u +%Y%m%d-%H%M%S)
+        SHA="nogit"
+        if [ -d .git ]; then
+          # Try to get current commit SHA if repo contains .git
+          SHA=$(cat .git/HEAD | sed 's#ref: ##' || true)
+          if echo "$SHA" | grep -q '^refs/'; then
+            REF_PATH=".git/${SHA}"
+            if [ -f "$REF_PATH" ]; then
+              SHA=$(cat "$REF_PATH")
+            fi
+          fi
+          SHA=$(echo "$SHA" | head -c 7)
+        fi
+
+        VERSION="$(params.prefix)${TS}-${SHA}"
+        echo -n "$VERSION" | tee $(results.version.path)
+

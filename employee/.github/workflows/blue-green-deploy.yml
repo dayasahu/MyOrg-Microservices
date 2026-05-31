@@ -1,0 +1,338 @@
+name: Blue-Green Deploy — Employee
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  IMAGE:        dayasahu6077/employee
+  SERVICE:      employee
+  NAMESPACE:    microservices
+  PREVIEW_SVC:  employee-preview
+  PREVIEW_PORT: "18080"
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════
+  # 1. BUILD + UNIT TEST
+  # ══════════════════════════════════════════════════════════════════
+  build:
+    name: "1 · Build & Unit Test"
+    runs-on: self-hosted
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag (short git SHA)
+        id: tag
+        shell: powershell
+        run: |
+          $tag = $env:GITHUB_SHA.Substring(0, 8)
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Image tag: $tag"
+
+      - name: Run unit tests
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}".Replace('\', '/')
+          docker run --rm `
+            -v "${workspace}:/workspace" `
+            -w /workspace `
+            maven:3.9.9-eclipse-temurin-21 `
+            mvn -B test
+
+      - name: Build Docker image
+        shell: powershell
+        run: docker build -t "$env:IMAGE`:${{ steps.tag.outputs.tag }}" .
+
+  # ══════════════════════════════════════════════════════════════════
+  # 2. INTEGRATION TESTS
+  # ══════════════════════════════════════════════════════════════════
+  integration-test:
+    name: "2 · Integration Tests"
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run integration tests
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}".Replace('\', '/')
+          docker run --rm `
+            -v "${workspace}:/workspace" `
+            -w /workspace `
+            maven:3.9.9-eclipse-temurin-21 `
+            mvn -B verify -DskipUnitTests
+
+  # ══════════════════════════════════════════════════════════════════
+  # 3. PUSH IMAGE
+  # ══════════════════════════════════════════════════════════════════
+  push-image:
+    name: "3 · Push Image → Docker Hub"
+    needs: [build, integration-test]
+    runs-on: self-hosted
+    steps:
+      - name: Login to Docker Hub
+        shell: powershell
+        run: docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+
+      - name: Push image
+        shell: powershell
+        run: |
+          $tag = "${{ needs.build.outputs.image_tag }}"
+          docker push "$env:IMAGE`:$tag"
+
+  # ══════════════════════════════════════════════════════════════════
+  # 4. DEPLOY GREEN
+  # ══════════════════════════════════════════════════════════════════
+  deploy-green:
+    name: "4 · Deploy Green"
+    needs: [build, push-image]
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply Rollout manifests
+        shell: powershell
+        run: |
+          kubectl apply -f k8/analysis-template.yaml -n $env:NAMESPACE
+          kubectl apply -f k8/service-preview.yaml   -n $env:NAMESPACE
+          kubectl delete deployment $env:SERVICE -n $env:NAMESPACE --ignore-not-found=true
+          kubectl apply -f k8/rollout.yaml -n $env:NAMESPACE
+
+      - name: Set green image
+        shell: powershell
+        run: |
+          $tag = "${{ needs.build.outputs.image_tag }}"
+          kubectl argo rollouts set image $env:SERVICE `
+            "$env:SERVICE=$env:IMAGE`:$tag" `
+            -n $env:NAMESPACE
+
+      - name: Wait for green pods ready
+        shell: powershell
+        run: |
+          Write-Host "Waiting for green pods..."
+          Start-Sleep 30
+          kubectl -n $env:NAMESPACE get pods -l app=$env:SERVICE
+          kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
+
+  # ══════════════════════════════════════════════════════════════════
+  # 5. SMOKE TESTS
+  # ══════════════════════════════════════════════════════════════════
+  smoke-test:
+    name: "5 · Smoke Tests"
+    needs: deploy-green
+    runs-on: self-hosted
+    steps:
+      - name: Start port-forward
+        shell: powershell
+        run: |
+          Write-Host "=== Rollout state ==="
+          kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
+
+          Write-Host "=== Preview service endpoints ==="
+          kubectl get endpoints $env:PREVIEW_SVC -n $env:NAMESPACE
+
+          Write-Host "=== Pods ==="
+          kubectl get pods -n $env:NAMESPACE -l app=$env:SERVICE
+
+          Write-Host "=== Starting port-forward ==="
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/$env:PREVIEW_SVC","$env:PREVIEW_PORT`:8080","-n","$env:NAMESPACE" `
+            -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_smoke.txt"
+          Write-Host "kubectl pid: $($proc.Id)"
+
+          Write-Host "=== Waiting for port $env:PREVIEW_PORT to be ready ==="
+          $ready = $false
+          for ($i = 1; $i -le 30; $i++) {
+            Start-Sleep 1
+            try {
+              $t = New-Object System.Net.Sockets.TcpClient
+              $t.Connect("127.0.0.1", [int]$env:PREVIEW_PORT)
+              $t.Close()
+              $ready = $true
+              Write-Host "Port $env:PREVIEW_PORT ready after ${i}s"
+              break
+            } catch {}
+            Write-Host "  waiting... ${i}s (kubectl alive: $(-not $proc.HasExited))"
+          }
+          if (-not $ready) {
+            Write-Host "Port $env:PREVIEW_PORT not ready after 30s"
+            exit 1
+          }
+
+      - name: Run smoke tests
+        shell: powershell
+        run: |
+          $base = "http://localhost:$env:PREVIEW_PORT"
+          $pass = 0; $fail = 0
+
+          function Check($name, $expected, $actual) {
+            if ($actual -eq $expected) {
+              Write-Host "  [PASS] $name"
+              $script:pass++
+            } else {
+              Write-Host "  [FAIL] $name - expected '$expected' got '$actual'"
+              $script:fail++
+            }
+          }
+
+          Write-Host ""
+          Write-Host "Smoke tests -> $base"
+          Write-Host "-----------------------------------"
+
+          Write-Host "1. Health / readiness"
+          try { $r = Invoke-RestMethod "$base/actuator/health/readiness"; Check "status=UP" "UP" $r.status }
+          catch { Check "status=UP" "UP" "UNREACHABLE" }
+
+          Write-Host "2. GET /api/hello"
+          try { $r = Invoke-WebRequest "$base/api/hello" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" }
+          catch { Check "HTTP 200" "200" "FAILED" }
+
+          Write-Host "3. GET /api/employees"
+          try { $r = Invoke-WebRequest "$base/api/employees" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" }
+          catch { Check "HTTP 200" "200" "FAILED" }
+
+          Write-Host "4. GET /api/profile"
+          try { $r = Invoke-WebRequest "$base/api/profile" -UseBasicParsing; Check "HTTP 200" "200" "$($r.StatusCode)" }
+          catch { Check "HTTP 200" "200" "FAILED" }
+
+          Write-Host "-----------------------------------"
+          Write-Host "Results: $pass passed, $fail failed"
+
+          if ($fail -gt 0) { Write-Host "[FAILED] Smoke tests FAILED"; exit 1 }
+          Write-Host "[PASSED] All smoke tests PASSED"
+
+      - name: Stop port-forward
+        if: always()
+        shell: powershell
+        run: |
+          $id = Get-Content "$env:TEMP\pf_smoke.txt" -ErrorAction SilentlyContinue
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+
+  # ══════════════════════════════════════════════════════════════════
+  # 6. PERFORMANCE TESTS (k6)
+  # ══════════════════════════════════════════════════════════════════
+  performance-test:
+    name: "6 · Performance Tests (k6)"
+    needs: smoke-test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start port-forward
+        shell: powershell
+        run: |
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/employee-preview","18080:8080","-n","microservices" `
+            -WindowStyle Hidden -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_perf.txt"
+          Start-Sleep 8
+          Write-Host "Port-forward started (pid $($proc.Id))"
+
+      - name: Run k6 load test
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}".Replace('\', '/')
+          docker run --rm `
+            -v "${workspace}/tests/performance:/tests" `
+            -e BASE_URL=http://host.docker.internal:$env:PREVIEW_PORT `
+            grafana/k6 run /tests/load-test.js
+
+      - name: Stop port-forward
+        if: always()
+        shell: powershell
+        run: |
+          $id = Get-Content "$env:TEMP\pf_perf.txt" -ErrorAction SilentlyContinue
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+
+  # ══════════════════════════════════════════════════════════════════
+  # 7. E2E TESTS (Newman)
+  # ══════════════════════════════════════════════════════════════════
+  e2e-test:
+    name: "7 · E2E Tests (Newman)"
+    needs: performance-test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start port-forward
+        shell: powershell
+        run: |
+          $proc = Start-Process -FilePath "kubectl" `
+            -ArgumentList "port-forward","svc/employee-preview","18080:8080","-n","microservices" `
+            -WindowStyle Hidden -PassThru
+          $proc.Id | Out-File "$env:TEMP\pf_e2e.txt"
+          Start-Sleep 8
+          Write-Host "Port-forward started (pid $($proc.Id))"
+
+      - name: Run Newman E2E tests
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}".Replace('\', '/')
+          docker run --rm `
+            -v "${workspace}/tests/e2e:/etc/newman" `
+            postman/newman run /etc/newman/collection.json `
+              --env-var "baseUrl=http://host.docker.internal:$env:PREVIEW_PORT" `
+              --reporters cli
+
+      - name: Stop port-forward
+        if: always()
+        shell: powershell
+        run: |
+          $id = Get-Content "$env:TEMP\pf_e2e.txt" -ErrorAction SilentlyContinue
+          if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+
+  # ══════════════════════════════════════════════════════════════════
+  # 8. MANUAL APPROVAL
+  # ══════════════════════════════════════════════════════════════════
+  approval:
+    name: "8 · Manual Approval ✋"
+    needs: e2e-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "✅ Approved. Promoting green → active."
+
+  # ══════════════════════════════════════════════════════════════════
+  # 9. PROMOTE
+  # ══════════════════════════════════════════════════════════════════
+  promote:
+    name: "9 · Promote Green → Active 🚀"
+    needs: approval
+    runs-on: self-hosted
+    steps:
+      - name: Promote rollout
+        shell: powershell
+        run: kubectl argo rollouts promote $env:SERVICE -n $env:NAMESPACE
+
+      - name: Wait for promotion
+        shell: powershell
+        run: kubectl argo rollouts status $env:SERVICE -n $env:NAMESPACE --timeout=60s
+
+      - name: Summary
+        shell: powershell
+        run: |
+          Write-Host "Promotion complete - green is now live!"
+          kubectl argo rollouts get rollout $env:SERVICE -n $env:NAMESPACE
+
+  # ══════════════════════════════════════════════════════════════════
+  # AUTO-ROLLBACK on test failure
+  # ══════════════════════════════════════════════════════════════════
+  rollback:
+    name: "⛔ Rollback to Blue"
+    needs: [smoke-test, performance-test, e2e-test]
+    if: failure()
+    runs-on: self-hosted
+    steps:
+      - name: Abort and rollback
+        shell: powershell
+        run: |
+          Write-Host "Tests failed - rolling back to blue..."
+          kubectl argo rollouts abort $env:SERVICE -n $env:NAMESPACE
+          kubectl argo rollouts undo  $env:SERVICE -n $env:NAMESPACE
+          Write-Host "Blue is still live. No impact to production."

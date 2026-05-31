@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: employee
+  labels:
+    app: employee
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: employee
+  template:
+    metadata:
+      labels:
+        app: employee
+        app.kubernetes.io/part-of: microservices-training
+        environment: dev
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: employee
+          image: dayasahu6077/employee:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_CONFIG_IMPORT
+              value: "optional:configserver:http://configserver:8071"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "dev"
+            - name: SPRING_APPLICATION_NAME
+              value: "employee"
+            - name: OTEL_TRACES_ENDPOINT
+              value: http://alloy.observability.svc.cluster.local:4318/v1/traces
+            - name: OTEL_METRICS_ENDPOINT
+              value: http://alloy.observability.svc.cluster.local:4318/v1/metrics
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+  strategy:
+    blueGreen:
+      # activeService = live traffic (blue)
+      activeService: employee
+      # previewService = new version (green) - tests run against this
+      previewService: employee-preview
+      # Never auto-promote — pipeline must call 'kubectl argo rollouts promote'
+      autoPromotionEnabled: false
+      # Run smoke tests automatically before promotion is even allowed
+      prePromotionAnalysis:
+        templates:
+          - templateName: smoke-test
+        args:
+          - name: preview-url
+            value: http://employee-preview.microservices.svc.cluster.local:8080
+      # Keep blue alive 30s after promotion so instant rollback is possible
+      scaleDownDelaySeconds: 30

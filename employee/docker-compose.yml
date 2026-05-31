@@ -1,0 +1,135 @@
+# Microservices stack.
+# Joins the external `observability` network created by
+# observability/docker-compose.yml so traces / metrics / logs flow to the
+# OTel collector at otel-collector:4318.
+#
+# All five services build from source via multi-stage Dockerfiles - no Maven
+# or JDK needed on the host, just Docker.
+#
+# Bring up order:
+#   docker network create observability                              # one-time
+#   docker compose -f observability/docker-compose.yml up -d --wait  # LGTM + OTel
+#   docker compose -f employee/docker-compose.yml      up -d --build # services
+#
+# Or use the Windows bootstrap script from the repo root:
+#   .\bootstrap.ps1
+
+name: microservices
+
+services:
+
+  configserver:
+    build:
+      context: ../configserver
+    image: dayasahu6077/configserver:${IMAGE_TAG:-latest}
+    container_name: configserver
+    ports:
+      - "8071:8071"
+    volumes:
+      - ../config/props:/config
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8071/actuator/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    environment:
+      # Force port 8071 in-container regardless of what the jar's
+      # application.properties says (local dev uses 8072).
+      - "SERVER_PORT=8071"
+      - "management.endpoints.web.base-path=/actuator"
+      - "management.endpoints.web.exposure.include=health,info,metrics,prometheus,beans,conditions,mappings,env,loggers,threaddump,heapdump"
+      - "management.endpoint.health.show-details=always"
+      # Include every service that pulls config from this server.
+      - "SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS=file:/config/employee/,file:/config/department/,file:/config/ms-api-gateway/"
+      # OTLP exporters
+      - "OTEL_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces"
+      - "OTEL_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics"
+      - "OTEL_LOGS_ENDPOINT=http://otel-collector:4318/v1/logs"
+    networks:
+      - dsnetwork
+      - observability
+
+  employee:
+    build:
+      context: ../employee
+    image: dayasahu6077/employee:${IMAGE_TAG:-latest}
+    container_name: employee
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://configserver:8071
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_APPLICATION_NAME=employee
+      - OTEL_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
+      - OTEL_LOGS_ENDPOINT=http://otel-collector:4318/v1/logs
+    depends_on:
+      configserver:
+        condition: service_healthy
+    networks:
+      - dsnetwork
+      - observability
+
+  department:
+    build:
+      context: ../department
+    image: dayasahu6077/department:${IMAGE_TAG:-latest}
+    container_name: department
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://configserver:8071
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_APPLICATION_NAME=department
+      - OTEL_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
+      - OTEL_LOGS_ENDPOINT=http://otel-collector:4318/v1/logs
+    depends_on:
+      configserver:
+        condition: service_healthy
+    networks:
+      - dsnetwork
+      - observability
+
+  ms-api-gateway:
+    build:
+      context: ../ms-api-gateway
+    image: dayasahu6077/ms-api-gateway:${IMAGE_TAG:-latest}
+    container_name: ms-api-gateway
+    ports:
+      - "8888:8888"
+    environment:
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://configserver:8071
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_APPLICATION_NAME=ms-api-gateway
+      - JWT_SECRET=myDefaultSecretKey1234567890abcdefghij
+      - OTEL_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+      - OTEL_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
+      - OTEL_LOGS_ENDPOINT=http://otel-collector:4318/v1/logs
+    depends_on:
+      configserver:
+        condition: service_healthy
+    networks:
+      - dsnetwork
+      - observability
+
+  auth-service:
+    build:
+      context: ../auth-service
+    image: dayasahu6077/auth-service:${IMAGE_TAG:-latest}
+    container_name: auth-service
+    ports:
+      - "9000:9000"
+    environment:
+      - JWT_SECRET=myDefaultSecretKey1234567890abcdefghij
+    networks:
+      - dsnetwork
+      - observability
+
+networks:
+  dsnetwork:
+    driver: bridge
+  observability:
+    name: observability
+    external: true

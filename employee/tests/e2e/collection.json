@@ -1,0 +1,77 @@
+﻿{
+  "info": {
+    "name": "Employee Service E2E Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:18080" }
+  ],
+  "item": [
+    {
+      "name": "Health - Readiness",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Status is UP', function() {",
+        "  var json = pm.response.json();",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "  pm.expect(json.status).to.equal('UP');",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health/readiness" }
+    },
+    {
+      "name": "Health - Liveness",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Status is UP', function() {",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "  pm.expect(pm.response.json().status).to.equal('UP');",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health/liveness" }
+    },
+    {
+      "name": "GET /api/hello",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns 200', function() {",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/hello" }
+    },
+    {
+      "name": "GET /api/employees",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns 200', function() {",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "});",
+        "pm.test('Returns array', function() {",
+        "  pm.expect(pm.response.json()).to.be.an('array');",
+        "});",
+        "pm.test('Has employees', function() {",
+        "  pm.expect(pm.response.json().length).to.be.greaterThan(0);",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/employees" }
+    },
+    {
+      "name": "GET /api/profile",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns 200', function() {",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/profile" }
+    },
+    {
+      "name": "GET /api/departments",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns 200', function() {",
+        "  pm.expect(pm.response.code).to.equal(200);",
+        "});",
+        "pm.test('Has departments', function() {",
+        "  pm.expect(pm.response.json()).to.be.an('array');",
+        "});"
+      ], "type": "text/javascript" } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/departments" }
+    }
+  ]
+}

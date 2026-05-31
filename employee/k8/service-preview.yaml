@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-preview
+  labels:
+    app: employee
+    role: preview
+spec:
+  # Argo Rollouts manages the pod-template-hash selector automatically
+  # to point this service at the green ReplicaSet
+  selector:
+    app: employee
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
