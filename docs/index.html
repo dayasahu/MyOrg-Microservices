@@ -1,58 +1,31 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MyOrg Platform — Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<button class="menu-toggle" id="menuToggle">☰</button>
 <div class="layout">
-
-  <!-- ================= SIDEBAR ================= -->
-  <aside class="sidebar" id="sidebar">
-    <div class="brand">
-      <h1><span class="logo">⬡</span> MyOrg Platform</h1>
-      <p>Microservices · Kubernetes · Observability</p>
-    </div>
-    <nav class="nav">
-      <div class="nav-group">
-        <div class="nav-group-title">Getting Started</div>
-        <a href="index.html"><span class="ic">⌂</span> Overview &amp; Architecture</a>
-        <a href="setup.html"><span class="ic">⚙</span> Setup Guide (Windows)</a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-title">Architecture</div>
-        <a href="cross-cutting.html"><span class="ic">⚹</span> Cross-Cutting Concerns</a>
-        <a href="patterns.html"><span class="ic">◈</span> Design Patterns</a>
-        <a href="gateway.html"><span class="ic">⊟</span> API Gateway</a>
-        <a href="config-server.html"><span class="ic">⛁</span> Config Server</a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-title">Operations</div>
-        <a href="observability.html"><span class="ic">📊</span> Observability</a>
-        <a href="deployment.html"><span class="ic">🚀</span> Deployment &amp; Blue-Green</a>
-        <a href="cicd.html"><span class="ic">∞</span> CI/CD &amp; Argo</a>
-        <a href="tooling.html"><span class="ic">🛠</span> Makefile &amp; Bootstrap</a>
-      </div>
-    </nav>
-  </aside>
-
-  <!-- ================= CONTENT ================= -->
   <main class="content">
   <div class="container">
 
     <div class="hero">
       <h1>MyOrg Microservices Platform</h1>
-      <p>A production-grade Spring Boot microservices system running on Kubernetes —
-         complete with an API gateway, centralized configuration, full LGTM observability,
-         and zero-downtime blue-green deployments driven by GitHub Actions and Argo Rollouts.</p>
+      <p>A production-grade Spring Boot microservices system on Kubernetes — with an API gateway,
+         centralized configuration, a <strong>five-layer test pyramid</strong> gating every
+         deployment, full LGTM observability, and zero-downtime blue-green releases driven by
+         GitHub Actions and Argo Rollouts.</p>
       <div class="tags">
         <span class="pill">Java 21</span>
         <span class="pill">Spring Boot 3.5.8</span>
         <span class="pill">Spring Cloud 2025.0.0</span>
         <span class="pill">Kubernetes</span>
+        <span class="pill">JUnit 5 · Mockito</span>
+        <span class="pill">k6 Performance</span>
+        <span class="pill">Newman / Postman E2E</span>
         <span class="pill">Argo Rollouts</span>
         <span class="pill">Grafana LGTM</span>
         <span class="pill">GitHub Actions</span>
@@ -60,20 +33,20 @@
     </div>
 
     <p class="lead text-muted" style="font-size:18px;">
-      This documentation explains <strong>every layer</strong> of the platform — from a single API
-      request travelling through the gateway, down to how metrics, logs and traces are collected and
-      visualised. It is written so that anyone cloning the repo can understand the design decisions
-      and stand the whole system up locally on a Windows machine.
+      This documentation covers <strong>every layer</strong> of the platform — from how a JWT
+      travels through the gateway, to how five testing layers gate each deployment, down to how
+      metrics, logs and traces are visualised. Written so anyone cloning the repo can understand
+      the design decisions and stand the system up on Windows with one command.
     </p>
 
     <h2 id="what">What's Inside</h2>
     <div class="grid grid-3">
-      <div class="feature"><div class="ico">⊟</div><h4>API Gateway</h4><p>Spring Cloud Gateway routes all traffic and validates JWTs in one place.</p></div>
-      <div class="feature"><div class="ico">⛁</div><h4>Config Server</h4><p>Centralized Spring Cloud Config in native mode, backed by Kubernetes ConfigMaps.</p></div>
-      <div class="feature"><div class="ico">🔐</div><h4>JWT Auth</h4><p>Dedicated auth-service issues HS256 tokens; the gateway enforces them.</p></div>
-      <div class="feature"><div class="ico">📊</div><h4>LGTM Observability</h4><p>Loki, Grafana, Tempo, Prometheus + Grafana Alloy as a single collector.</p></div>
-      <div class="feature"><div class="ico">🚀</div><h4>Blue-Green</h4><p>Argo Rollouts with automated smoke analysis and instant rollback.</p></div>
-      <div class="feature"><div class="ico">∞</div><h4>CI/CD</h4><p>GitHub Actions pipeline: build → test → deploy green → approve → promote.</p></div>
+      <div class="feature"><div class="ico">⊟</div><h4>API Gateway</h4><p>Spring Cloud Gateway routes all traffic and validates JWTs before a request reaches any service.</p></div>
+      <div class="feature"><div class="ico">⛁</div><h4>Config Server</h4><p>Centralized Spring Cloud Config in native mode, backed by Kubernetes ConfigMaps per environment.</p></div>
+      <div class="feature"><div class="ico">🔐</div><h4>JWT Auth</h4><p>Dedicated auth-service issues HS256 tokens; the global gateway filter enforces them platform-wide.</p></div>
+      <div class="feature"><div class="ico">🧪</div><h4>Five-Layer Testing</h4><p>Unit → Integration → Smoke → Performance (k6) → E2E (Newman). Every layer must pass before green goes live.</p></div>
+      <div class="feature"><div class="ico">📊</div><h4>LGTM Observability</h4><p>Loki, Grafana, Tempo, Prometheus + Grafana Alloy as a single DaemonSet collector.</p></div>
+      <div class="feature"><div class="ico">🚀</div><h4>Blue-Green + CI/CD</h4><p>Argo Rollouts with automated analysis, GitHub Actions pipeline, and a manual approval gate before promotion.</p></div>
     </div>
 
     <h2 id="services">The Five Services</h2>
@@ -87,6 +60,181 @@
         <tr><td><strong>configserver</strong></td><td>Serves config to all services</td><td>8071</td><td>Deployment</td><td><code>configserver:8071</code></td></tr>
       </tbody>
     </table>
+
+    <!-- ================= TESTING IN THE PIPELINE ================= -->
+    <h2 id="testing">Testing in the Pipeline</h2>
+    <p>Every push to <code>master</code> runs <strong>five layers of automated testing</strong>
+       before a single user sees the new version. The layers are ordered cheapest-first — a fast
+       unit failure stops the pipeline before anything is built or deployed.</p>
+
+    <div class="test-pipeline-visual">
+      <div class="tp-stage tp-pre">
+        <div class="tp-label">Before build</div>
+        <div class="tp-items">
+          <div class="tp-item tp-unit">
+            <span class="tp-icon">🟢</span>
+            <div>
+              <strong>Unit Tests</strong>
+              <span>JUnit 5 · Mockito · <code>mvn test</code></span>
+            </div>
+          </div>
+          <div class="tp-item tp-integ">
+            <span class="tp-icon">🔵</span>
+            <div>
+              <strong>Integration Tests</strong>
+              <span>Spring Boot Test · <code>mvn verify</code></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tp-arrow">→</div>
+      <div class="tp-stage tp-post">
+        <div class="tp-label">After green deployed (preview only)</div>
+        <div class="tp-items">
+          <div class="tp-item tp-smoke">
+            <span class="tp-icon">🟠</span>
+            <div>
+              <strong>Smoke Tests</strong>
+              <span>curl · health + key endpoints</span>
+            </div>
+          </div>
+          <div class="tp-item tp-perf">
+            <span class="tp-icon">🟠</span>
+            <div>
+              <strong>Performance</strong>
+              <span>k6 · <code>tests/performance/load-test.js</code></span>
+            </div>
+          </div>
+          <div class="tp-item tp-e2e">
+            <span class="tp-icon">🟣</span>
+            <div>
+              <strong>E2E Tests</strong>
+              <span>Newman · <code>tests/e2e/collection.json</code></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tp-arrow">→</div>
+      <div class="tp-stage tp-gate">
+        <div class="tp-label">Human gate</div>
+        <div class="tp-items">
+          <div class="tp-item tp-approve">
+            <span class="tp-icon">✋</span>
+            <div>
+              <strong>Manual Approval</strong>
+              <span>GitHub environment: production</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <table style="margin-top:20px;">
+      <thead>
+        <tr><th>Layer</th><th>Tool</th><th>Pipeline stage</th><th>Runs against</th><th>Blocks on failure</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill green">Unit</span></td>
+          <td><code>JUnit 5</code> · <code>Mockito</code></td>
+          <td>1 — Build</td>
+          <td>Individual classes / methods</td>
+          <td>Image is never built</td>
+        </tr>
+        <tr>
+          <td><span class="pill blue">Integration</span></td>
+          <td><code>Spring Boot Test</code> · <code>@SpringBootTest</code></td>
+          <td>2 — Integration</td>
+          <td>Full Spring context wired together</td>
+          <td>Image is never pushed</td>
+        </tr>
+        <tr>
+          <td><span class="pill amber">Smoke</span></td>
+          <td>curl / scripted HTTP checks</td>
+          <td>5 — Smoke</td>
+          <td>Preview (green) service</td>
+          <td>Rollback, blue stays live</td>
+        </tr>
+        <tr>
+          <td><span class="pill amber">Performance</span></td>
+          <td><code>k6</code></td>
+          <td>6 — Performance</td>
+          <td>Preview (green) service</td>
+          <td>Rollback, blue stays live</td>
+        </tr>
+        <tr>
+          <td><span class="pill purple">E2E</span></td>
+          <td><code>Newman</code> (Postman)</td>
+          <td>7 — E2E</td>
+          <td>Preview (green) service</td>
+          <td>Rollback, blue stays live</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <strong>Real users never see a broken release.</strong>
+      Stages 5–7 run against the <em>preview</em> (green) service only — real traffic stays on blue
+      throughout. Any failure triggers an automatic <code>argo rollouts abort &amp;&amp; undo</code>,
+      returning the cluster to the last-known-good state in seconds.
+      <a href="cicd.html#test-strategies">Full testing deep-dive →</a>
+    </div>
+
+    <!-- ================= TECHNOLOGY STACK ================= -->
+    <h2 id="stack">Technology Stack</h2>
+    <p>Every layer of the platform uses a deliberately chosen tool. The table below groups them by
+       concern so you can quickly understand what is in play and why.</p>
+
+    <div class="stack-grid">
+      <div class="stack-col">
+        <div class="stack-col-head" style="background:linear-gradient(135deg,#6d5afe22,#6d5afe08);border-color:#6d5afe44;">
+          <span>⚡</span> Runtime &amp; Framework
+        </div>
+        <ul>
+          <li><strong>Java 21</strong> — virtual threads, records, pattern matching</li>
+          <li><strong>Spring Boot 3.5.8</strong> — auto-config, actuator, native image</li>
+          <li><strong>Spring Cloud 2025.0.0</strong> — Gateway, Config, LoadBalancer</li>
+          <li><strong>Spring WebFlux</strong> — reactive WebClient for service calls</li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <div class="stack-col-head" style="background:linear-gradient(135deg,#10b98122,#10b98108);border-color:#10b98144;">
+          <span>🧪</span> Testing
+        </div>
+        <ul>
+          <li><strong>JUnit 5</strong> — unit tests per service (<code>mvn test</code>)</li>
+          <li><strong>Mockito</strong> — mock dependencies in unit tests</li>
+          <li><strong>Spring Boot Test</strong> — <code>@SpringBootTest</code> integration layer</li>
+          <li><strong>k6</strong> — performance / load tests on the preview service</li>
+          <li><strong>Newman</strong> — Postman collection runner for E2E API flows</li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <div class="stack-col-head" style="background:linear-gradient(135deg,#06b6d422,#06b6d408);border-color:#06b6d444;">
+          <span>📊</span> Observability
+        </div>
+        <ul>
+          <li><strong>Grafana Alloy</strong> — DaemonSet collector (logs, traces, metrics)</li>
+          <li><strong>Loki</strong> — log aggregation</li>
+          <li><strong>Tempo</strong> — distributed tracing</li>
+          <li><strong>Prometheus</strong> — metrics scraping &amp; alerting</li>
+          <li><strong>Grafana</strong> — 6 dashboards, unified UI</li>
+        </ul>
+      </div>
+      <div class="stack-col">
+        <div class="stack-col-head" style="background:linear-gradient(135deg,#f59e0b22,#f59e0b08);border-color:#f59e0b44;">
+          <span>🚀</span> Delivery &amp; Infrastructure
+        </div>
+        <ul>
+          <li><strong>Kubernetes</strong> — orchestration, namespaces, ConfigMaps</li>
+          <li><strong>Kustomize</strong> — base + overlay manifests per environment</li>
+          <li><strong>Argo Rollouts</strong> — blue-green with AnalysisTemplate</li>
+          <li><strong>GitHub Actions</strong> — CI/CD pipeline, self-hosted runner</li>
+          <li><strong>Docker Hub</strong> — image registry, SHA-tagged immutable images</li>
+          <li><strong>NGINX Ingress</strong> — single load-balancer entry point</li>
+        </ul>
+      </div>
+    </div>
 
     <!-- ================= ARCHITECTURE DIAGRAM ================= -->
     <h2 id="architecture">End-to-End Architecture</h2>
@@ -217,6 +365,167 @@
       It walks through every tool you need on Windows and the exact commands to bring the whole platform up with one <code>make up</code>.
     </div>
 
+    <!-- ================= BY THE NUMBERS ================= -->
+    <h2 id="numbers">By the Numbers</h2>
+    <p>The tools in this stack aren't experiments — they're proven at a scale that's hard to imagine.
+       Here's what the industry looks like behind the tech choices made here.</p>
+
+    <div class="stats-grid">
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#6d5afe"></div>
+        <div class="stat-num">3 <span>billion+</span></div>
+        <div class="stat-title">JVM instances worldwide</div>
+        <div class="stat-body">Java is the most widely deployed runtime on Earth. Java 21 virtual threads handle <strong>millions of concurrent connections</strong> on the same heap that ran your first Hello World.</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#10b981"></div>
+        <div class="stat-num">1,000 <span>+</span></div>
+        <div class="stat-title">Netflix microservices on Spring Boot</div>
+        <div class="stat-body">The same framework you're looking at powers Netflix's entire recommendation engine, serving <strong>300 million subscribers</strong> across 190 countries without a single restart.</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#f59e0b"></div>
+        <div class="stat-num">90 <span>%</span></div>
+        <div class="stat-title">Fortune 100 run Kubernetes</div>
+        <div class="stat-body">From NASA spaceflight telemetry to Goldman Sachs trading systems, Kubernetes became the <strong>universal operating system for the cloud</strong> in under a decade.</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#06b6d4"></div>
+        <div class="stat-num">20 <span>million+</span></div>
+        <div class="stat-title">Grafana users across 3,000+ orgs</div>
+        <div class="stat-body">Bloomberg, NASA, Dell and Vodafone all stare at Grafana dashboards on their NOC screens. The exact same <strong>LGTM stack</strong> ships in this repo.</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#ef4444"></div>
+        <div class="stat-num">50 <span>million+</span></div>
+        <div class="stat-title">JUnit downloads per month</div>
+        <div class="stat-body">Written by Kent Beck and Erich Gamma on a flight from Zürich to Atlanta — the <strong>most executed testing framework in the world</strong> now runs inside every serious Java CI pipeline.</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-orb" style="--orb:#8b5cf6"></div>
+        <div class="stat-num">11.6 <span>sec</span></div>
+        <div class="stat-title">Amazon's average deploy interval</div>
+        <div class="stat-body">Amazon deploys to production every 11.6 seconds on average. Their secret? <strong>Automated testing at every layer</strong> — exactly the five-layer pyramid this pipeline implements.</div>
+      </div>
+
+    </div>
+
+    <!-- ================= WHO RUNS THIS STACK ================= -->
+    <h2 id="credibility">Who Runs This Stack</h2>
+    <p>Every technology in this platform is battle-tested by companies whose engineering blogs you read.
+       Click any row to explore how they use it.</p>
+
+    <div class="cred-table">
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#6d5afe1a;color:#6d5afe;border-color:#6d5afe33">Spring Boot</span>
+        </div>
+        <div class="cred-companies">
+          <a class="cred-co" href="https://netflixtechblog.com" target="_blank" rel="noopener">Netflix</a>
+          <a class="cred-co" href="https://engineering.linkedin.com" target="_blank" rel="noopener">LinkedIn</a>
+          <a class="cred-co" href="https://aws.amazon.com" target="_blank" rel="noopener">Amazon AWS</a>
+          <a class="cred-co" href="https://engineering.atspotify.com" target="_blank" rel="noopener">Spotify</a>
+          <span class="cred-co">Alibaba</span>
+          <span class="cred-co">Capital One</span>
+          <span class="cred-co">Ticketmaster</span>
+          <span class="cred-co">SAP</span>
+        </div>
+      </div>
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#3b82f61a;color:#3b82f6;border-color:#3b82f633">Kubernetes</span>
+        </div>
+        <div class="cred-companies">
+          <a class="cred-co" href="https://engineering.atspotify.com" target="_blank" rel="noopener">Spotify</a>
+          <a class="cred-co" href="https://medium.com/airbnb-engineering" target="_blank" rel="noopener">Airbnb</a>
+          <span class="cred-co">Pinterest</span>
+          <span class="cred-co">The New York Times</span>
+          <span class="cred-co">NASA</span>
+          <span class="cred-co">Goldman Sachs</span>
+          <span class="cred-co">Uber</span>
+          <span class="cred-co">Twitter / X</span>
+        </div>
+      </div>
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#f59e0b1a;color:#d97706;border-color:#f59e0b33">Grafana LGTM</span>
+        </div>
+        <div class="cred-companies">
+          <span class="cred-co">Bloomberg</span>
+          <a class="cred-co" href="https://blog.booking.com" target="_blank" rel="noopener">Booking.com</a>
+          <span class="cred-co">NASA</span>
+          <span class="cred-co">Dell</span>
+          <span class="cred-co">Vodafone</span>
+          <span class="cred-co">Comcast</span>
+          <span class="cred-co">DHL</span>
+          <span class="cred-co">DigitalOcean</span>
+        </div>
+      </div>
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#10b9811a;color:#059669;border-color:#10b98133">GitHub Actions</span>
+        </div>
+        <div class="cred-companies">
+          <span class="cred-co">Microsoft</span>
+          <span class="cred-co">Google</span>
+          <span class="cred-co">Apple</span>
+          <a class="cred-co" href="https://stripe.com/blog/engineering" target="_blank" rel="noopener">Stripe</a>
+          <span class="cred-co">Meta</span>
+          <span class="cred-co">Shopify</span>
+          <span class="cred-co">Atlassian</span>
+          <span class="cred-co">HashiCorp</span>
+        </div>
+      </div>
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#8b5cf61a;color:#7c3aed;border-color:#8b5cf633">Argo Rollouts</span>
+        </div>
+        <div class="cred-companies">
+          <span class="cred-co">Adobe</span>
+          <span class="cred-co">Intuit</span>
+          <span class="cred-co">Red Hat</span>
+          <a class="cred-co" href="https://www.twilio.com/blog/engineering" target="_blank" rel="noopener">Twilio</a>
+          <span class="cred-co">Bose</span>
+          <span class="cred-co">Akuity</span>
+          <span class="cred-co">Codefresh</span>
+        </div>
+      </div>
+
+      <div class="cred-row">
+        <div class="cred-tech">
+          <span class="cred-badge" style="background:#ef44441a;color:#dc2626;border-color:#ef444433">k6 · Newman</span>
+        </div>
+        <div class="cred-companies">
+          <span class="cred-co">Microsoft</span>
+          <span class="cred-co">Mozilla</span>
+          <a class="cred-co" href="https://www.postman.com" target="_blank" rel="noopener">Postman</a>
+          <span class="cred-co">GitHub</span>
+          <span class="cred-co">Grafana Labs</span>
+          <span class="cred-co">Accenture</span>
+          <span class="cred-co">Vodafone</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout info" style="margin-top:8px;">
+      <div><strong>Enterprise-grade patterns, learnable scale.</strong>
+      This repo implements the <em>same architectural patterns</em> used by the companies above —
+      blue-green deployments, layered test pipelines, unified observability — condensed into a
+      five-service system you can run on a laptop. The complexity is real; the hardware bill is not.</div>
+    </div>
+
     <div class="page-nav">
       <span></span>
       <a class="next" href="setup.html"><div class="dir">Next →</div><div class="ttl">Setup Guide (Windows)</div></a>
@@ -228,3 +537,6 @@
 <script src="assets/script.js"></script>
 </body>
 </html>
+
+
+
