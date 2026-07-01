@@ -12,8 +12,9 @@
       { href: "structure.html",     icon: "🗂", label: "Repository Map",           sub: "Folders, files, modules" }
     ]},
     { title: "Core Concepts", items: [
-      { href: "cross-cutting.html", icon: "⚹", label: "Cross-Cutting Concerns",   sub: "Auth, logging, tracing" },
-      { href: "patterns.html",      icon: "◈", label: "Design Patterns",          sub: "Architecture decisions" }
+      { href: "cross-cutting.html",    icon: "⚹", label: "Cross-Cutting Concerns",   sub: "Auth, logging, tracing" },
+      { href: "patterns.html",         icon: "◈", label: "Design Patterns",          sub: "Architecture decisions" },
+      { href: "k8s-jvm-standards.html",icon: "⚖", label: "K8s & JVM Standards",     sub: "Sizing, GC, golden config" }
     ]},
     { title: "Building Blocks", items: [
       { href: "gateway.html",       icon: "⊟", label: "API Gateway",              sub: "Routing, JWT, rate limits" },

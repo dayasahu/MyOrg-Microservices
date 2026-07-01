@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8s &amp; JVM Standards — MyOrg Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+/* ── Page-local helpers ─────────────────────────────────────────── */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;vertical-align:middle}
+.badge.gold{background:#fef3c7;color:#92400e}
+.badge.blue{background:#dbeafe;color:#1e40af}
+.badge.green{background:#d1fae5;color:#065f46}
+.badge.red{background:#fee2e2;color:#991b1b}
+.badge.purple{background:#ede9fe;color:#5b21b6}
+.badge.gray{background:#f1f5f9;color:#475569}
+.badge.cyan{background:#cffafe;color:#155e75}
+.badge.orange{background:#ffedd5;color:#9a3412}
+
+/* Callout variants */
+.callout.industry{background:#fdf4ff;border-left-color:#a855f7;color:#581c87}
+.callout.industry strong{color:#7e22ce}
+.callout.tip{background:#f0fdf4;border-left-color:#22c55e;color:#14532d}
+.callout.tip strong{color:#15803d}
+.callout.danger{background:#fff1f2;border-left-color:#f43f5e;color:#881337}
+.callout.danger strong{color:#be123c}
+
+/* Trade-off cards */
+.tradeoff{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.25rem 0}
+.tradeoff-box{border-radius:10px;padding:1rem 1.25rem;font-size:.85rem}
+.tradeoff-box h5{margin:0 0 .6rem;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.tradeoff-box ul{margin:0;padding-left:1.1rem}
+.tradeoff-box ul li{margin:.3rem 0}
+.tradeoff-box.pros{background:#d1fae5;color:#065f46}
+.tradeoff-box.pros h5{color:#047857}
+.tradeoff-box.cons{background:#fee2e2;color:#7f1d1d}
+.tradeoff-box.cons h5{color:#b91c1c}
+.tradeoff-box.warn-box{background:#fff7ed;color:#7c2d12}
+.tradeoff-box.warn-box h5{color:#c2410c}
+.tradeoff-box.neutral{background:#f1f5f9;color:#1e293b}
+.tradeoff-box.neutral h5{color:#334155}
+
+/* Decision tree */
+.dtree{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem 2rem;margin:1.5rem 0}
+.dtree h4{margin:0 0 .9rem;color:var(--accent);font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.dt-row{display:flex;gap:1rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px dashed var(--border)}
+.dt-row:last-child{border-bottom:none}
+.dt-cond{flex:0 0 230px;font-weight:600;color:var(--text);font-size:.84rem;display:flex;gap:.4rem;align-items:flex-start}
+.dt-cond .dt-icon{flex-shrink:0;font-size:1rem}
+.dt-rec{flex:1;font-size:.84rem;color:var(--muted);line-height:1.55}
+.dt-rec code{font-size:.79rem}
+.dt-rec strong{color:var(--text)}
+
+/* Ratio cards */
+.ratio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin:1.25rem 0}
+.ratio-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;text-align:center}
+.ratio-card .rv{font-size:1.8rem;font-weight:800;color:var(--accent);line-height:1.1}
+.ratio-card .rl{font-size:.74rem;color:var(--muted);margin-top:.3rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.ratio-card .rd{font-size:.8rem;color:var(--text);margin-top:.45rem;line-height:1.45}
+
+/* Service pattern cards */
+.pattern-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem;margin:1.5rem 0}
+.pattern-card{border-radius:12px;border:1px solid var(--border);padding:1.25rem 1.5rem;background:var(--surface)}
+.pattern-card .pc-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem}
+.pattern-card .pc-icon{font-size:1.4rem;flex-shrink:0}
+.pattern-card .pc-title{font-size:.95rem;font-weight:700;color:var(--text)}
+.pattern-card .pc-sub{font-size:.75rem;color:var(--muted);margin-top:.1rem}
+.pattern-card .pc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:.82rem;padding:.25rem 0;border-bottom:1px solid var(--border)}
+.pattern-card .pc-row:last-child{border-bottom:none}
+.pattern-card .pc-key{color:var(--muted);font-weight:500}
+.pattern-card .pc-val{color:var(--text);font-weight:700}
+.pattern-card .pc-why{font-size:.78rem;color:var(--muted);margin-top:.75rem;line-height:1.5;font-style:italic;border-top:1px solid var(--border);padding-top:.6rem}
+
+/* Checklist */
+.checklist{list-style:none;padding:0;margin:0}
+.checklist li{display:flex;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.86rem;color:var(--text);align-items:flex-start}
+.checklist li:last-child{border-bottom:none}
+.checklist li::before{content:"☐";font-size:1rem;color:var(--accent);flex-shrink:0;line-height:1.4}
+.checklist li .cl-note{font-size:.78rem;color:var(--muted);display:block;margin-top:.15rem}
+
+/* Golden box */
+.golden-box{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:14px;padding:1.75rem 2rem;margin:2rem 0;color:#e2e8f0}
+.golden-box h3{color:#93c5fd;margin:0 0 1rem;font-size:1rem;letter-spacing:.04em;text-transform:uppercase}
+.golden-box pre{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:1rem 1.25rem;overflow-x:auto;font-size:.78rem;line-height:1.75;color:#e2e8f0;margin:.75rem 0}
+
+/* Industry badge */
+.industry-label{display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;font-weight:700;color:#7e22ce;text-transform:uppercase;letter-spacing:.06em;background:#fdf4ff;border:1px solid #d8b4fe;border-radius:20px;padding:2px 10px;margin-bottom:.5rem}
+
+/* Section number circle */
+.sec-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.78rem;font-weight:800;flex-shrink:0;margin-right:.4rem;vertical-align:middle}
+
+/* Override card */
+.override-box{border-left:3px solid #f59e0b;background:#fffbeb;border-radius:0 8px 8px 0;padding:.75rem 1rem;margin:.75rem 0;font-size:.84rem;color:#78350f}
+.override-box strong{color:#92400e}
+
+/* Case study cards */
+.case-study{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:1.75rem 0;background:var(--surface)}
+.cs-header{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--border)}
+.cs-company{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#fff;background:var(--accent);padding:3px 12px;border-radius:20px;flex-shrink:0}
+.cs-tags{display:flex;gap:.4rem;flex-wrap:wrap}
+.cs-title{font-size:1rem;font-weight:700;color:var(--text);padding:.9rem 1.5rem .4rem;line-height:1.4}
+.cs-body{padding:.25rem 1.5rem 1.25rem;font-size:.875rem;color:var(--muted);line-height:1.65}
+.cs-body p{margin:.5rem 0}
+.cs-outcome{background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:.75rem 1rem;margin:.9rem 0;font-size:.84rem;color:#14532d}
+.cs-outcome strong{color:#15803d}
+.cs-lesson{background:#eff6ff;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:.7rem 1rem;margin:.75rem 0;font-size:.82rem;color:#1e3a8a;font-weight:500}
+
+/* Facts grid */
+.facts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;margin:1.5rem 0}
+.fact-card{border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;background:var(--surface)}
+.fact-icon{font-size:1.6rem;margin-bottom:.6rem}
+.fact-title{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.5rem;line-height:1.35}
+.fact-body{font-size:.82rem;color:var(--muted);line-height:1.6}
+.fact-body code{font-size:.78rem}
+
+@media(max-width:640px){
+  .tradeoff{grid-template-columns:1fr}
+  .dt-row{flex-direction:column}
+  .dt-cond{flex:unset}
+  .cs-header{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Platform Standards</div>
+      <h1>Kubernetes &amp; JVM Standards</h1>
+      <p class="lead">Organization-wide best practices for sizing, tuning, and operating Spring Boot microservices
+        on Kubernetes — with rationale, trade-off analysis, and decision rules for every common service pattern.</p>
+    </div>
+
+    <div class="callout info">
+      <strong>How to use this guide.</strong> Each section explains the <em>why</em>, not just the what.
+      Every recommendation includes a trade-off table, override conditions, and callouts for specific service patterns —
+      Kafka consumers, schedulers, async pipelines, state machines, and bulky services each behave differently
+      under load, and are called out explicitly.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 1 — RESOURCE SIZING
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="resource-sizing"><span class="sec-num">1</span> Kubernetes Resource Sizing</h2>
+
+    <h3 id="req-vs-limit">Requests vs Limits — The Fundamental Distinction</h3>
+    <p>Kubernetes uses <strong>requests</strong> to <em>schedule</em> (find a node that has enough headroom)
+    and <strong>limits</strong> to <em>enforce</em> (cap what a container may consume).</p>
+
+    <table>
+      <thead><tr><th>Setting</th><th>Scheduler uses it?</th><th>Runtime enforcement</th><th>Exceed behaviour</th></tr></thead>
+      <tbody>
+        <tr><td><strong>CPU Request</strong></td><td>Yes — finds node with spare CPU</td><td>Linux CFS shares (weighted)</td><td>Under node contention, pod gets proportionally less CPU time. On an idle node it can freely burst above its request up to any limit (or node capacity if no limit).</td></tr>
+        <tr><td><strong>CPU Limit</strong></td><td>No</td><td>CFS bandwidth control (hard quota)</td><td>Throttled even if node is idle</td></tr>
+        <tr><td><strong>Memory Request</strong></td><td>Yes — finds node with spare RAM</td><td>Soft reservation</td><td>Pod may be evicted under node pressure</td></tr>
+        <tr><td><strong>Memory Limit</strong></td><td>No</td><td>cgroup memory limit (hard)</td><td><code>OOMKilled</code> — container restarted</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>The most misunderstood rule.</strong> CPU throttling occurs at the <em>limit</em>, not at saturation.
+      A pod with <code>limit: 500m</code> running on a node at 10% CPU will still be throttled if it tries
+      to use 501m for even 1ms — this is CFS bandwidth throttling and it is the root cause of latency
+      spikes that appear despite low node CPU utilisation. It is distinct from the <em>noisy neighbour</em>
+      problem (where one pod starves others on the same node). Here only the throttled pod suffers, and
+      the node CPU graph shows nothing unusual.
+    </div>
+
+    <h3 id="qos">QoS Classes — Why They Matter</h3>
+    <table>
+      <thead><tr><th>Class</th><th>Condition</th><th>Eviction priority</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge green">Guaranteed</span></td><td>request = limit for all resources</td><td>Last to be evicted</td><td>Production APIs, stateful services</td></tr>
+        <tr><td><span class="badge orange">Burstable</span></td><td>request &lt; limit</td><td>Middle</td><td>Batch jobs, background workers</td></tr>
+        <tr><td><span class="badge red">BestEffort</span></td><td>No requests or limits set</td><td>First to be evicted</td><td>Never in production</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Memory always: request = limit.</strong> Unlike CPU, JVM heap is a fixed allocation — there is
+    no "burst" benefit. Setting memory request below limit creates Burstable QoS and risks eviction under
+    node pressure, even when the pod is behaving normally.</p>
+
+    <!-- ── By Service Pattern ── -->
+    <h3 id="by-pattern">Sizing by Service Pattern</h3>
+    <p>The right sizing depends on what the service <em>does</em>, not just how busy it is.
+    Below are concrete starting points for the most common patterns.</p>
+
+    <div class="pattern-grid">
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🌐</div><div><div class="pc-title">Stateless REST API</div><div class="pc-sub">Gateway, employee, department</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit (see §1.4)</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">HPA target</span><span class="pc-val">70% CPU</span></div>
+        <div class="pc-row"><span class="pc-key">Min replicas</span><span class="pc-val">2</span></div>
+        <div class="pc-why">Short-lived threads, predictable heap. Fixed memory = Guaranteed QoS. Omit CPU limit to avoid CFS throttle on latency spikes.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">📨</div><div><div class="pc-title">Kafka Consumer</div><div class="pc-sub">Event-driven, batch polling</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">1000m–2000m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">768Mi / 768Mi</span></div>
+        <div class="pc-row"><span class="pc-key">HPA target</span><span class="pc-val">Kafka lag (KEDA)</span></div>
+        <div class="pc-row"><span class="pc-key">Min replicas</span><span class="pc-val">2 (HA floor)</span></div>
+        <div class="pc-why">CPU spikes during poll/deserialization bursts. Max replicas must not exceed partition count — extra replicas receive no partitions and sit idle. Scale toward partition count under load via KEDA on consumer lag, not CPU.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">⏰</div><div><div class="pc-title">Scheduler / Batch Job</div><div class="pc-sub">@Scheduled, Spring Batch</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m (idle) → 2000m burst</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">2000m (finite job = burst OK)</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">1Gi / 2Gi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">1 (with leader election)</span></div>
+        <div class="pc-row"><span class="pc-key">Anti-pattern</span><span class="pc-val">HPA not suitable</span></div>
+        <div class="pc-why">Spiky CPU (dormant, then full-burst). Memory may grow during large dataset scans. Use CronJob for one-shot; use leader election (ShedLock) for @Scheduled to prevent duplicate runs on multiple replicas.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🔄</div><div><div class="pc-title">Async / Reactive Pipeline</div><div class="pc-sub">WebFlux, CompletableFuture chains</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Threads</span><span class="pc-val">Low (event-loop)</span></div>
+        <div class="pc-row"><span class="pc-key">Watch for</span><span class="pc-val">Off-heap / Netty buffers</span></div>
+        <div class="pc-why">Fewer OS threads but CPU-intensive event loop. Reduce MaxRAMPercentage to 65% — Netty allocates large off-heap buffers that count against the container limit but not JVM heap metrics.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🗄️</div><div><div class="pc-title">Bulky / Data-Heavy Service</div><div class="pc-sub">Large objects, in-memory cache, report gen</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m–1000m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">2000m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">2Gi / 2Gi</span></div>
+        <div class="pc-row"><span class="pc-key">GC choice</span><span class="pc-val">ZGC (Java 21)</span></div>
+        <div class="pc-row"><span class="pc-key">HPA target</span><span class="pc-val">60% CPU</span></div>
+        <div class="pc-why">Large heaps magnify GC pause times — ZGC keeps pauses sub-millisecond regardless of heap size. Use a lower HPA target (60%) because scaling lag with bulky services causes request queuing faster.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🔀</div><div><div class="pc-title">State Machine Service</div><div class="pc-sub">Spring State Machine, saga orchestrator</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">768Mi / 768Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">2 (stateless design required)</span></div>
+        <div class="pc-row"><span class="pc-key">State storage</span><span class="pc-val">DB / Redis (not in-memory)</span></div>
+        <div class="pc-why">CPU is low but memory is higher due to state graph objects held in memory during transitions. Never store state machine instances in heap across requests — use Redis or DB persistence so any replica can resume the saga.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🔗</div><div><div class="pc-title">Sync Fan-Out Service</div><div class="pc-sub">Calls 3+ downstream services per request</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Thread pool</span><span class="pc-val">High (or virtual threads)</span></div>
+        <div class="pc-row"><span class="pc-key">Timeout required</span><span class="pc-val">Yes — per call + total</span></div>
+        <div class="pc-why">Threads block waiting on downstream calls — thread count can be 3–5× normal. Either enable Java 21 virtual threads (eliminates this) or increase Tomcat max-threads significantly. Always set per-call timeouts to prevent cascading failures.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🗂️</div><div><div class="pc-title">Auth / Config Server</div><div class="pc-sub">Low RPS, high criticality</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">100m–250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">2 minimum</span></div>
+        <div class="pc-row"><span class="pc-key">HPA</span><span class="pc-val">Not needed (low RPS)</span></div>
+        <div class="pc-why">Low throughput but mission-critical — every other service depends on it. Two replicas with anti-affinity. No HPA needed; instead invest in PDB and topology constraints to ensure at least one replica survives node failures.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🔌</div><div><div class="pc-title">WebSocket / SSE Service</div><div class="pc-sub">Persistent long-lived connections</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">1Gi / 1Gi</span></div>
+        <div class="pc-row"><span class="pc-key">Thread model</span><span class="pc-val">Event loop (WebFlux)</span></div>
+        <div class="pc-row"><span class="pc-key">HPA metric</span><span class="pc-val">Active connections</span></div>
+        <div class="pc-why">Each open WebSocket holds state in memory (session, subscriptions, send buffer) for its entire lifetime — unlike HTTP where memory is freed after each response. 10,000 concurrent connections at 20KB per session = 200Mi memory overhead independent of business logic. Use WebFlux (Netty event loop) not Tomcat — traditional 1-thread-per-connection WebSocket on Tomcat will exhaust threads at a few thousand connections. Scale on active connection count, not CPU.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">📁</div><div><div class="pc-title">File / Stream Processing</div><div class="pc-sub">Upload, download, S3, PDF/Excel gen</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m–1000m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">2000m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">1Gi / 1Gi</span></div>
+        <div class="pc-row"><span class="pc-key">GC</span><span class="pc-val">G1GC + large region size</span></div>
+        <div class="pc-row"><span class="pc-key">Critical config</span><span class="pc-val">Stream — never buffer</span></div>
+        <div class="pc-why">The critical decision: buffer or stream. Buffering a 100MB upload into a byte array uses 100MB of heap per concurrent request — 10 concurrent uploads = 1Gi heap pressure immediately. Always stream to disk or S3 directly using Spring's <code>StreamingResponseBody</code> or multipart streaming. Set <code>spring.servlet.multipart.max-file-size</code> and <code>max-request-size</code> appropriately. For PDF/Excel generation (Apache POI, iText), objects are bulky — increase G1 region size with <code>-XX:G1HeapRegionSize=16m</code> to reduce region fragmentation during large allocation cycles.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">📐</div><div><div class="pc-title">CQRS — Command Side</div><div class="pc-sub">Append-only writes, event publishing</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">2+ (stateless)</span></div>
+        <div class="pc-row"><span class="pc-key">Throughput profile</span><span class="pc-val">High write, low read</span></div>
+        <div class="pc-why">Command side is typically lightweight — validate command, write event to store, publish to Kafka/bus. Objects are short-lived (young-gen GC handles them well). G1GC default is fine. Ensure commands are idempotent and the service is truly stateless — multiple replicas must be able to handle the same command without coordination. HPA on CPU works well here.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">📊</div><div><div class="pc-title">CQRS — Query / Projection Side</div><div class="pc-sub">Read models, projection rebuilds</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m (rebuild: 2000m)</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">2000m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">1Gi / 2Gi (rebuild window)</span></div>
+        <div class="pc-row"><span class="pc-key">GC</span><span class="pc-val">ZGC (large projection maps)</span></div>
+        <div class="pc-row"><span class="pc-key">Critical risk</span><span class="pc-val">Projection rebuild on startup</span></div>
+        <div class="pc-why">Normal read traffic is low-cost. The danger is projection rebuild — replaying the entire event store to reconstruct the read model. This is CPU and memory intensive, can take minutes, and happens on every cold start unless the projection is checkpointed. During rebuild, heap can grow 3–5× normal operating level. Set memory limit to handle rebuild peak, not steady-state. Extend startup probe <code>failureThreshold</code> to cover rebuild time. Use ZGC if projection maps are large (millions of entries). Always checkpoint projections to storage to avoid full rebuilds.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🧱</div><div><div class="pc-title">Cache-Aside Service</div><div class="pc-sub">Caffeine local cache, Redis L2</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">heap + cache size + 256Mi</span></div>
+        <div class="pc-row"><span class="pc-key">GC</span><span class="pc-val">G1GC + UseStringDeduplication</span></div>
+        <div class="pc-row"><span class="pc-key">Critical config</span><span class="pc-val">Cap cache by weight, not count</span></div>
+        <div class="pc-why">In-memory caches (Caffeine) live inside the JVM heap and must be included in the memory budget. A cache of 1M entries of average 1KB each = 1Gi of heap consumed by cache alone. Always size Caffeine by weight (<code>maximumWeight</code>) not count (<code>maximumSize</code>). Formula: container limit = MaxRAMPercentage heap + cache max size + 256Mi non-heap. Prefer Redis (off-heap, shared) for caches &gt; 500Mi — keeps JVM heap small and cache survives pod restarts. Enable <code>-XX:+UseStringDeduplication</code> (G1GC only) if keys are String-heavy — can reduce heap 10–20%.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🛡️</div><div><div class="pc-title">Resilience4j Bulkhead Service</div><div class="pc-sub">ThreadPoolBulkhead per downstream</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">Omit</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">768Mi / 768Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Thread overhead</span><span class="pc-val">+N threads per bulkhead</span></div>
+        <div class="pc-row"><span class="pc-key">Key risk</span><span class="pc-val">Bulkhead thread stacks unaccounted</span></div>
+        <div class="pc-why">Each <code>ThreadPoolBulkhead</code> creates a dedicated thread pool per downstream dependency. 5 downstreams × 10 threads each = 50 extra threads = ~12Mi extra thread stacks on top of Tomcat's pool. This is frequently not counted in memory budgets. Add all bulkhead thread pools to your memory calculation. SemaphoreBulkhead (the simpler alternative) does not create extra threads — prefer it when you don't need request queuing. Also account for circuit breaker metrics accumulation: Resilience4j's sliding window stores N call results in a ring buffer per circuit — at high throughput this can consume hundreds of MB if window sizes are too large.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">📬</div><div><div class="pc-title">Notification / Outbound Service</div><div class="pc-sub">Email, SMS, webhook, push</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">100m–250m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">512Mi / 512Mi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">2 (with deduplication)</span></div>
+        <div class="pc-row"><span class="pc-key">Critical risk</span><span class="pc-val">Duplicate sends on retry</span></div>
+        <div class="pc-why">CPU and memory are low — most time is spent blocked on external SMTP/SMS/push API calls. The real engineering challenge is correctness: at-least-once delivery from Kafka or a retry queue means the same notification may be triggered twice (pod restart mid-send, offset not committed). Use an idempotency key (message ID stored in DB/Redis) checked before each send. Always implement provider rate limiting (token bucket per provider API). Failed sends must go to a dead-letter queue, not be silently dropped — monitor DLQ depth as the primary SLA metric.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pc-head"><div class="pc-icon">🔁</div><div><div class="pc-title">Long-Poll / Workflow Orchestrator</div><div class="pc-sub">Temporal, Spring Integration, saga engine</div></div></div>
+        <div class="pc-row"><span class="pc-key">CPU request</span><span class="pc-val">500m</span></div>
+        <div class="pc-row"><span class="pc-key">CPU limit</span><span class="pc-val">1000m</span></div>
+        <div class="pc-row"><span class="pc-key">Memory req/limit</span><span class="pc-val">1Gi / 1Gi</span></div>
+        <div class="pc-row"><span class="pc-key">Replicas</span><span class="pc-val">2 (with sticky routing)</span></div>
+        <div class="pc-row"><span class="pc-key">State storage</span><span class="pc-val">External DB (mandatory)</span></div>
+        <div class="pc-why">Workflow instances can span hours or days. The JVM heap cannot hold workflow state across pod restarts — all in-flight workflow state must be persisted externally (Temporal DB, Spring Integration MessageStore, or custom saga table). Correlation IDs must be stored durably so any replica can resume. CPU is moderate but spiky at step transitions. Increase <code>terminationGracePeriodSeconds</code> significantly — a pod killed mid-step may leave a workflow in an ambiguous state if the step is not idempotent. Design every workflow step to be safe to re-execute.</div>
+      </div>
+
+    </div>
+
+    <!-- ── CPU Limits ── -->
+    <h3 id="cpu-limit-decision">Should You Set a CPU Limit? (Decision Tree)</h3>
+
+    <div class="dtree">
+      <h4>CPU Limit Decision — work through in order</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">1️⃣</span>Is this a batch job or offline task?</div>
+        <div class="dt-rec"><strong>Yes → Set a CPU limit</strong> (2–4× request). Finite jobs bursting fully is acceptable and desirable. A limit prevents them from monopolising the node for hours.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">2️⃣</span>Is P99 latency a hard SLA (&lt; 200ms)?</div>
+        <div class="dt-rec"><strong>Yes → Omit CPU limit.</strong> CFS throttle fires in 100ms windows — even a brief burst above the limit can add up to ~100ms of latency. Removing CPU limits on latency-sensitive services is a widely-advocated practice for exactly this reason (see the Omio post and kubernetes/kubernetes #67577 in §13).</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">3️⃣</span>Is node overcommit a concern?</div>
+        <div class="dt-rec">If you omit limits, ensure a <code>LimitRange</code> is set on the namespace so unbounded pods cannot consume entire nodes. Also set resource quotas at namespace level.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">4️⃣</span>Is this a Kafka consumer?</div>
+        <div class="dt-rec"><strong>Set a limit at 2–4× request.</strong> Consumer poll loops burst CPU during deserialization; a limit prevents one consumer starving the Kafka broker connection threads on shared nodes.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">5️⃣</span>Default for everything else</div>
+        <div class="dt-rec">Omit CPU limit if you have VPA in recommendation mode. Monitor <code>container_cpu_cfs_throttled_seconds_total</code> — if throttle ratio exceeds 25%, remove the limit.</div>
+      </div>
+    </div>
+
+    <div class="callout industry">
+      <div class="industry-label">🏭 Industry Practice</div>
+      Removing CPU limits on latency-sensitive workloads — while keeping requests and a namespace
+      <code>LimitRange</code> as a safety net — is a well-established pattern in the Kubernetes community.
+      The canonical references are Omio's post <em>"Make your services faster by removing CPU limits"</em>
+      and the long-running kubernetes/kubernetes issue #67577 on CFS-quota throttling (both cited in §13).
+      The pairing to apply on this platform: omit CPU limits, keep CPU <em>requests</em>, and govern with HPA
+      plus VPA recommendations rather than hard ceilings.
+    </div>
+
+    <!-- ── Startup CPU spike ── -->
+    <h3 id="startup-spike">Sizing for the Startup CPU Spike</h3>
+    <p>Spring Boot services use a burst of CPU at startup — JIT compilation, class loading, component
+    scanning, bean instantiation, and connection-pool warmup all happen in the first seconds. A common
+    mistake is to raise the CPU <em>request</em> to cover that spike. <strong>Don't.</strong> The spike is
+    transient; the request is a 24/7 reservation. Sizing the request for a 20-second startup event
+    permanently wastes node capacity and ruins bin-packing.</p>
+
+    <div class="callout tip">
+      <strong>The key insight: the request is a floor, not a ceiling.</strong> A pod can use far more CPU
+      than its request during startup — provided the node has spare capacity and <strong>no CPU limit</strong>
+      caps it. With a 250m request and no limit, the JVM can freely burst to 1500m+ while booting, then
+      settle back to its steady-state usage. The request never throttles you; only a limit does.
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#64748b"/></marker>
+        </defs>
+        <!-- axes -->
+        <line x1="70" y1="40" x2="70" y2="250" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ar)"/>
+        <line x1="70" y1="250" x2="710" y2="250" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="36" y="46" font-size="11" fill="#475569" text-anchor="middle">CPU</text>
+        <text x="710" y="270" font-size="11" fill="#475569" text-anchor="end">time →</text>
+
+        <!-- throttle zone (above a hypothetical limit) -->
+        <rect x="70" y="70" width="640" height="40" fill="#fee2e2" opacity="0.6"/>
+        <line x1="70" y1="110" x2="710" y2="110" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="700" y="86" font-size="11" fill="#b91c1c" text-anchor="end" font-weight="600">CPU limit 500m → throttles the startup spike (slow boot)</text>
+
+        <!-- request line -->
+        <line x1="70" y1="200" x2="710" y2="200" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="700" y="216" font-size="11" fill="#1d4ed8" text-anchor="end" font-weight="600">CPU request 250m (steady-state floor)</text>
+
+        <!-- usage curve: spike then settle -->
+        <path d="M70,250 C90,250 95,60 120,60 C150,60 165,150 200,180 C240,210 300,196 360,196 C460,196 560,196 700,196"
+              fill="none" stroke="#0ea5e9" stroke-width="3"/>
+        <text x="132" y="52" font-size="11" fill="#0369a1" font-weight="700">startup burst ≈ 1500m</text>
+        <text x="470" y="188" font-size="11" fill="#0369a1" font-weight="700">steady-state ≈ 200m</text>
+
+        <!-- startup window bracket -->
+        <line x1="70" y1="262" x2="230" y2="262" stroke="#64748b" stroke-width="1"/>
+        <text x="150" y="278" font-size="10.5" fill="#475569" text-anchor="middle">startup window (~10–30s)</text>
+        <line x1="230" y1="262" x2="710" y2="262" stroke="#64748b" stroke-width="1"/>
+        <text x="470" y="278" font-size="10.5" fill="#475569" text-anchor="middle">normal operation (hours/days)</text>
+      </svg>
+      <div class="caption">Figure 1 — The startup CPU burst is transient. Size the <em>request</em> for steady-state; let the pod burst through startup by omitting the CPU limit. A limit set near steady-state (red) throttles the boot and can fail the startup probe.</div>
+    </div>
+
+    <h4>If you must keep a CPU limit</h4>
+    <p>If policy forces a CPU limit, the startup spike gets throttled — slowing the boot, which can trip
+    the startup probe into a restart loop. Address it in this order:</p>
+    <table>
+      <thead><tr><th>Approach</th><th>What it does</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>Generous <code>startupProbe</code></td><td>Gives a throttled boot room to finish before liveness kills it (e.g. <code>failureThreshold: 20</code>)</td><td>Slower first-ready time; no downside otherwise</td></tr>
+        <tr><td>Reduce startup work</td><td>CDS / AOT / lazy-init cut the CPU the JVM needs at boot (see table below)</td><td>Build complexity or slower first request</td></tr>
+        <tr><td>Startup resource boost</td><td>Give extra CPU <em>only</em> during boot, then scale down</td><td>Platform-specific / newer (see note)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout info">
+      <strong>Startup boost &amp; in-place resize.</strong> Two newer mechanisms give extra CPU just for boot,
+      without permanently inflating the request: <strong>GKE Autopilot's workload startup CPU boost</strong>,
+      and Kubernetes <strong>In-Place Pod Resize</strong> (KEP-1287, beta in Kubernetes 1.33) which lets you
+      raise then lower requests without restarting the pod. Both are recent — verify availability on your
+      cluster before relying on them.
+    </div>
+
+    <h4 id="reduce-startup">Recommended approaches to reduce startup cost</h4>
+    <p>These cut the actual CPU and wall-clock the JVM spends starting, so the spike is smaller and shorter.
+    Ordered from least to most invasive:</p>
+    <table>
+      <thead><tr><th>Technique</th><th>How to enable</th><th>Typical effect</th><th>Cost / caveat</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Lazy initialisation</strong></td><td><code>spring.main.lazy-initialization=true</code></td><td>Beans created on first use → faster boot</td><td>First request to each path is slower; cover with startup probe</td></tr>
+        <tr><td><strong>Class Data Sharing (CDS)</strong></td><td>Spring Boot 3.3+ first-class support; or <code>-XX:SharedArchiveFile</code> after a training run</td><td>~20–35% faster startup; shared, memory-mapped class metadata</td><td>Extra build step to produce the archive; small image-size increase</td></tr>
+        <tr><td><strong>Spring AOT processing</strong></td><td>Spring Boot 3 AOT engine (used by native, also helps on the JVM)</td><td>Less reflection/proxy work at runtime</td><td>Some highly-dynamic bean patterns unsupported</td></tr>
+        <tr><td><strong>CRaC (Checkpoint/Restore)</strong></td><td>Spring Boot 3.2+ integration; needs a CRaC-enabled JDK (Azul Zulu, BellSoft Liberica)</td><td>Restores a warmed process → startup in tens of milliseconds</td><td>Checkpoint contains process state (handle secrets/connections carefully); special JDK required</td></tr>
+        <tr><td><strong>GraalVM Native Image</strong></td><td>Spring Boot 3 <code>-Pnative</code> / <code>build-image</code></td><td>Sub-100ms startup, much lower memory</td><td>Lower peak throughput (no JIT); long builds; reachability/reflection config</td></tr>
+        <tr><td><code>-XX:TieredStopAtLevel=1</code></td><td>JVM flag — stop JIT at C1</td><td>Faster warmup &amp; lower startup CPU</td><td>Lower peak throughput — only for short-lived or startup-sensitive services</td></tr>
+      </tbody>
+    </table>
+    <div class="callout tip">
+      <strong>Recommended for this platform (Java 21 + Spring Boot 3.5):</strong> start with
+      <strong>CDS</strong> (first-class in Spring Boot 3.3+) plus a generous startup probe — it needs no
+      special JDK and no code changes. Add <strong>lazy-init</strong> for non-Kafka services. Reach for
+      <strong>CRaC</strong> or <strong>Native Image</strong> only when you need near-instant startup
+      (e.g. scale-to-zero, or minimising Kafka consumer lag during rolling deploys). See
+      <a href="#sb-jdk-features">§6 — Spring Boot 3/4 &amp; JDK 17+ Cloud Features</a> for version details.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 2 — JVM CONFIG
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="jvm-config"><span class="sec-num">2</span> JVM &amp; Spring Boot Memory Configuration</h2>
+
+    <h3 id="container-aware">Container-Aware JVM — Why It Matters</h3>
+    <p>Before Java 10, the JVM could not see cgroup limits — it sized the heap against the full host RAM.
+    A container with 512Mi limit on a 64Gi node would default to a 16Gi heap and immediately OOMKill.
+    <code>UseContainerSupport</code> (default on since Java 10) reads the cgroup v1/v2 memory limit instead.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 780 420" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <!-- Node -->
+        <rect x="20" y="20" width="740" height="380" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
+        <text x="40" y="44" font-size="13" font-weight="700" fill="#0f172a">Kubernetes Node (e.g. 16 vCPU / 64Gi RAM)</text>
+
+        <!-- Pod / cgroup -->
+        <rect x="44" y="60" width="500" height="320" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+        <text x="64" y="84" font-size="12.5" font-weight="700" fill="#1d4ed8">Pod → cgroup memory limit = 768Mi (the hard ceiling)</text>
+        <text x="64" y="102" font-size="10.5" fill="#3b82f6">OOMKilled if total RSS exceeds this — heap AND non-heap count</text>
+
+        <!-- Container -->
+        <rect x="64" y="116" width="460" height="248" rx="8" fill="#fff" stroke="#cbd5e1"/>
+        <text x="80" y="138" font-size="11.5" font-weight="700" fill="#334155">Container → JVM process</text>
+
+        <!-- Heap -->
+        <rect x="80" y="150" width="428" height="96" rx="6" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="92" y="170" font-size="11.5" font-weight="700" fill="#1e40af">JVM Heap  ≈ 537Mi</text>
+        <text x="92" y="187" font-size="10" fill="#1e3a8a">MaxRAMPercentage=70.0 × 768Mi</text>
+        <rect x="92" y="198" width="180" height="34" rx="4" fill="#bfdbfe"/><text x="182" y="220" font-size="9.5" fill="#1e3a8a" text-anchor="middle">Young gen (Eden + Survivor)</text>
+        <rect x="280" y="198" width="216" height="34" rx="4" fill="#93c5fd"/><text x="388" y="220" font-size="9.5" fill="#1e3a8a" text-anchor="middle">Old gen (tenured)</text>
+
+        <!-- Non-heap -->
+        <rect x="80" y="254" width="428" height="98" rx="6" fill="#fef3c7" stroke="#fbbf24"/>
+        <text x="92" y="273" font-size="11.5" font-weight="700" fill="#92400e">Non-heap  ≈ 215–230Mi  (must fit in the remaining ~30%)</text>
+        <rect x="92" y="282" width="96" height="28" rx="4" fill="#fde68a"/><text x="140" y="300" font-size="9" fill="#78350f" text-anchor="middle">Metaspace</text>
+        <rect x="196" y="282" width="96" height="28" rx="4" fill="#fde68a"/><text x="244" y="300" font-size="9" fill="#78350f" text-anchor="middle">Thread stacks</text>
+        <rect x="300" y="282" width="96" height="28" rx="4" fill="#fde68a"/><text x="348" y="300" font-size="9" fill="#78350f" text-anchor="middle">Code cache</text>
+        <rect x="404" y="282" width="96" height="28" rx="4" fill="#fde68a"/><text x="452" y="300" font-size="9" fill="#78350f" text-anchor="middle">Direct buffers</text>
+        <rect x="92" y="316" width="150" height="28" rx="4" fill="#fcd34d"/><text x="167" y="334" font-size="9" fill="#78350f" text-anchor="middle">GC structures</text>
+        <rect x="250" y="316" width="150" height="28" rx="4" fill="#fcd34d"/><text x="325" y="334" font-size="9" fill="#78350f" text-anchor="middle">OS / runtime</text>
+
+        <!-- right side annotations -->
+        <rect x="566" y="116" width="172" height="116" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="578" y="138" font-size="11" font-weight="700" fill="#0f172a">Why 70%, not 75%</text>
+        <text x="578" y="158" font-size="9.5" fill="#334155">768 × 75% = 576Mi heap</text>
+        <text x="578" y="173" font-size="9.5" fill="#334155">leaves only ~192Mi for</text>
+        <text x="578" y="188" font-size="9.5" fill="#334155">non-heap → too tight.</text>
+        <text x="578" y="208" font-size="9.5" fill="#b91c1c">Use 75% only when the</text>
+        <text x="578" y="222" font-size="9.5" fill="#b91c1c">container limit ≥ 1Gi.</text>
+
+        <rect x="566" y="244" width="172" height="120" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="578" y="266" font-size="11" font-weight="700" fill="#991b1b">Two ways to die</text>
+        <text x="578" y="286" font-size="9.5" fill="#7f1d1d">• Heap full → JVM</text>
+        <text x="586" y="300" font-size="9.5" fill="#7f1d1d">OutOfMemoryError</text>
+        <text x="578" y="320" font-size="9.5" fill="#7f1d1d">• Total &gt; cgroup limit</text>
+        <text x="586" y="334" font-size="9.5" fill="#7f1d1d">→ kernel OOMKills the</text>
+        <text x="586" y="348" font-size="9.5" fill="#7f1d1d">container (exit 137)</text>
+      </svg>
+      <div class="caption">Figure 2 — How the JVM lives inside a Kubernetes pod. The container-aware JVM sizes the heap as a percentage of the pod's cgroup memory limit — but everything else (Metaspace, thread stacks, code cache, direct buffers, GC structures, OS) must also fit inside the same limit, or the kernel OOMKills the container.</div>
+    </div>
+
+    <div class="tradeoff">
+      <div class="tradeoff-box pros">
+        <h5>✅ Container-aware (MaxRAMPercentage) — Recommended</h5>
+        <ul>
+          <li>Portable — works regardless of container size</li>
+          <li>Scales correctly with VPA/HPA pod resizing</li>
+          <li>No manifest sync required when memory limit changes</li>
+          <li>Industry default (GKE, EKS runbooks both recommend this)</li>
+        </ul>
+        <code style="display:block;margin-top:.6rem;font-size:.8rem">-XX:MaxRAMPercentage=75.0<br>-XX:InitialRAMPercentage=50.0</code>
+      </div>
+      <div class="tradeoff-box warn-box">
+        <h5>⚠️ Explicit heap (-Xms / -Xmx)</h5>
+        <ul>
+          <li>Easy to reason about in isolation</li>
+          <li>Breaks silently if container limit is changed without updating JVM flags</li>
+          <li>Over-allocates heap if container is scaled up by VPA</li>
+          <li>Under-allocates if container is right-sized down</li>
+        </ul>
+        <code style="display:block;margin-top:.6rem;font-size:.8rem">-Xms256m -Xmx512m</code>
+      </div>
+    </div>
+
+    <div class="override-box">
+      <strong>When to use explicit heap anyway:</strong> If the service has a known, fixed workload
+      (e.g., a sidecar with a tight memory budget of exactly 128Mi) and you need to guarantee no heap growth
+      beyond a specific value. Use both: <code>-XX:MaxRAMPercentage=75 -Xmx384m</code> — whichever is lower wins.
+    </div>
+
+    <h3 id="memory-breakdown">Full Memory Budget Breakdown</h3>
+    <p>Container memory = Heap + Non-heap. Non-heap is often underestimated. Here is the full breakdown
+    for a <strong>768Mi container</strong> with <code>MaxRAMPercentage=70</code> (not 75 — see the warning below):</p>
+
+    <table>
+      <thead><tr><th>Region</th><th>Typical allocation</th><th>Controlled by</th><th>Common mistake</th></tr></thead>
+      <tbody>
+        <tr><td><strong>JVM Heap</strong></td><td>≈ 537Mi (70%)</td><td><code>MaxRAMPercentage</code></td><td>Setting too high leaves nothing for non-heap</td></tr>
+        <tr><td><strong>Metaspace</strong></td><td>80–128Mi</td><td><code>-XX:MaxMetaspaceSize=128m</code></td><td>Uncapped metaspace can grow until OOMKill</td></tr>
+        <tr><td><strong>Thread stacks</strong></td><td>25–50Mi (100 threads × 256KB)</td><td><code>-Xss256k</code></td><td>Tomcat with 200 threads = 50Mi unaccounted</td></tr>
+        <tr><td><strong>Code cache (JIT)</strong></td><td>40–64Mi</td><td><code>-XX:ReservedCodeCacheSize=64m</code></td><td>Often forgotten in budget calculations</td></tr>
+        <tr><td><strong>Direct / off-heap</strong></td><td>20–50Mi</td><td><code>-XX:MaxDirectMemorySize</code></td><td>Netty, NIO — grows silently and causes OOMKill</td></tr>
+        <tr><td><strong>GC internal</strong></td><td>20–40Mi</td><td>GC algorithm</td><td>ZGC has higher GC overhead than G1 at small heaps</td></tr>
+        <tr><td><strong>OS + runtime</strong></td><td>~50Mi</td><td>OS</td><td>Not visible in JVM metrics</td></tr>
+        <tr><td><strong>Total non-heap</strong></td><td>235–382Mi</td><td>—</td><td>537 + 382 = 919Mi — already over 768Mi at the high end</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <strong>The 75% rule breaks on 768Mi containers.</strong> 768Mi × 75% = 576Mi heap. Minimum realistic
+      non-heap (Metaspace 80Mi + stacks 25Mi + code cache 40Mi + GC 20Mi + OS 50Mi) = ~215Mi.
+      576 + 215 = 791Mi — already over the 768Mi limit before a single direct buffer is allocated.
+      <strong>Use 70% (537Mi heap) on 768Mi containers.</strong> Only push to 75% on containers ≥ 1Gi
+      where non-heap overhead is proportionally smaller relative to heap.
+    </div>
+
+    <div class="callout danger">
+      <strong>The reactive/Netty trap.</strong> WebFlux and Netty allocate large pools of <em>direct memory</em>
+      that live outside the JVM heap. A service with <code>MaxRAMPercentage=75</code> in a 512Mi container
+      uses 384Mi heap — but Netty may allocate another 100–150Mi direct buffer. Total = 530Mi → <strong>OOMKill</strong>.
+      For reactive services, reduce <code>MaxRAMPercentage</code> to 60–65% and set
+      <code>-XX:MaxDirectMemorySize=128m</code>.
+    </div>
+
+    <h3 id="heap-percentages">MaxRAMPercentage Decision Tree</h3>
+
+    <div class="dtree">
+      <h4>Choosing MaxRAMPercentage by service characteristics</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📦</span>Container ≤ 512Mi</div>
+        <div class="dt-rec"><strong>60%.</strong> Non-heap overhead is nearly fixed (metaspace, threads, OS) — in small containers it is proportionally large. A 512Mi × 75% = 384Mi heap leaves only 128Mi for everything else, which is insufficient.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📦</span>Container 512Mi–1Gi + Spring MVC</div>
+        <div class="dt-rec"><strong>70%.</strong> Standard Spring Boot Tomcat service. Non-heap overhead is 200–250Mi minimum. At 768Mi × 70% = 537Mi heap + ~230Mi non-heap = 767Mi — just within budget. Using 75% on a 768Mi container pushes heap to 576Mi, leaving only ~192Mi for non-heap which is insufficient once thread stacks, code cache and OS overhead are counted. Reserve 75% for containers ≥ 1Gi.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">⚡</span>Container any size + WebFlux/Netty</div>
+        <div class="dt-rec"><strong>60–65%.</strong> Netty direct memory pools are proportional to request throughput. Always cap with <code>-XX:MaxDirectMemorySize=128m</code> and monitor <code>jvm_memory_used_bytes{area="nonheap"}</code>.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📨</span>Kafka consumer with large messages</div>
+        <div class="dt-rec"><strong>65–70%.</strong> Deserialised messages live in heap until processed. For Avro/Protobuf at high throughput, heap fills faster than a REST service. Monitor young-gen GC frequency.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🗄️</span>Bulky service with in-memory cache</div>
+        <div class="dt-rec"><strong>75–80%.</strong> Non-heap is relatively smaller. Use ZGC to avoid long pauses during large heap collections. Set a cache size cap independent of heap to prevent unbounded growth.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">⏰</span>Batch / Spring Batch job</div>
+        <div class="dt-rec"><strong>80%.</strong> Jobs are finite — no long-running thread stacks to accumulate. Set a high percentage but add <code>-XX:+ExitOnOutOfMemoryError</code> so OOM terminates the job cleanly rather than hanging.</div>
+      </div>
+    </div>
+
+    <h3 id="gc-selection">GC Selection by Service Pattern</h3>
+    <table>
+      <thead><tr><th>GC</th><th>Best for</th><th>Avoid when</th><th>Key trade-off</th><th>Java version</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>G1GC</strong> <span class="badge blue">Default</span></td>
+          <td>Most services, heap 256Mi–8Gi</td>
+          <td>Sub-10ms latency requirement</td>
+          <td>Balanced throughput vs latency; STW pauses up to 200ms</td>
+          <td>Java 9+</td>
+        </tr>
+        <tr>
+          <td><strong>ZGC</strong> <span class="badge green">Latency</span></td>
+          <td>Bulky services, heap &gt; 1Gi, latency SLAs</td>
+          <td>Container &lt; 512Mi (overhead too high)</td>
+          <td>Sub-ms pauses; 10–15% throughput cost; higher memory overhead</td>
+          <td>Production-ready Java 15. Generational ZGC (improved) Java 21.</td>
+        </tr>
+        <tr>
+          <td><strong>Shenandoah</strong></td>
+          <td>Same as ZGC, on OpenJDK builds</td>
+          <td>Oracle JDK (not included)</td>
+          <td>Similar to ZGC; slightly lower memory overhead</td>
+          <td>Java 15+</td>
+        </tr>
+        <tr>
+          <td><strong>SerialGC</strong></td>
+          <td>Tiny sidecars &lt; 256Mi</td>
+          <td>Any service with &gt; 1 core</td>
+          <td>Smallest footprint; single-threaded — terrible throughput</td>
+          <td>All</td>
+        </tr>
+        <tr>
+          <td><strong>ParallelGC</strong></td>
+          <td>Batch jobs — throughput over latency</td>
+          <td>Latency-sensitive services</td>
+          <td>Maximum throughput; STW pauses may be seconds</td>
+          <td>All</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout industry">
+      <div class="industry-label">🏭 Common Practice</div>
+      The widely-followed pattern: keep <strong>G1GC</strong> as the default for the vast majority of
+      services, and switch to <strong>ZGC</strong> selectively for large-heap (&gt; 1Gi) latency-sensitive
+      services where G1's stop-the-world pauses start cascading into downstream timeouts. ZGC's
+      sub-millisecond pauses are largely independent of heap size, traded against a modest throughput cost
+      and higher memory overhead — so size the container limit to include that overhead. See the OpenJDK
+      ZGC project pages and JEP 377 / JEP 439 (§13).
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 3 — GC STRATEGY  (NEW)
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="gc-strategy"><span class="sec-num">3</span> Choosing a Garbage Collection Strategy</h2>
+    <p>Every collector trades off three things you cannot maximise at once: <strong>throughput</strong>
+    (CPU spent on application vs GC), <strong>latency</strong> (length of stop-the-world pauses), and
+    <strong>footprint</strong> (memory and CPU overhead the GC itself needs). Picking a GC is really
+    picking <em>which two</em> of those three matter most for a given service.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <!-- triangle -->
+        <polygon points="360,40 110,250 610,250" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+        <text x="360" y="32" font-size="12.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">Latency (short pauses)</text>
+        <text x="96" y="270" font-size="12.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">Throughput</text>
+        <text x="624" y="270" font-size="12.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">Low footprint</text>
+        <!-- GC placements -->
+        <circle cx="360" cy="95" r="6" fill="#7c3aed"/><text x="372" y="99" font-size="11" font-weight="700" fill="#5b21b6">ZGC / Shenandoah — latency first</text>
+        <circle cx="210" cy="225" r="6" fill="#0369a1"/><text x="222" y="229" font-size="11" font-weight="700" fill="#075985">ParallelGC — throughput first</text>
+        <circle cx="540" cy="225" r="6" fill="#b45309"/><text x="430" y="244" font-size="11" font-weight="700" fill="#92400e">SerialGC — tiny footprint</text>
+        <circle cx="360" cy="180" r="7" fill="#16a34a"/><text x="372" y="184" font-size="11.5" font-weight="800" fill="#15803d">G1GC — balanced default</text>
+      </svg>
+      <div class="caption">Figure 3 — The GC trade-off triangle. G1GC sits in the middle as a balanced default; the specialised collectors each pull toward one corner. Choose by which corner your service actually needs.</div>
+    </div>
+
+    <h3 id="gc-decision">GC Decision Flowchart</h3>
+    <div class="diagram">
+      <svg viewBox="0 0 760 470" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, sans-serif">
+        <defs><marker id="gca" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#64748b"/></marker></defs>
+        <!-- Q1 -->
+        <rect x="250" y="20" width="260" height="52" rx="8" fill="#fff" stroke="#94a3b8"/>
+        <text x="380" y="42" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">Tiny container (heap ≲ 512Mi)</text>
+        <text x="380" y="59" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">or single-vCPU sidecar?</text>
+        <line x1="510" y1="46" x2="660" y2="46" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="558" y="38" font-size="10.5" fill="#16a34a" font-weight="700">Yes</text>
+        <rect x="640" y="22" width="100" height="48" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="690" y="51" font-size="11.5" fill="#92400e" text-anchor="middle" font-weight="700">SerialGC</text>
+        <line x1="380" y1="72" x2="380" y2="108" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="392" y="94" font-size="10.5" fill="#64748b">No</text>
+
+        <!-- Q2 -->
+        <rect x="250" y="108" width="260" height="52" rx="8" fill="#fff" stroke="#94a3b8"/>
+        <text x="380" y="130" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">Batch / ETL — raw throughput</text>
+        <text x="380" y="147" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">matters more than pauses?</text>
+        <line x1="510" y1="134" x2="660" y2="134" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="558" y="126" font-size="10.5" fill="#16a34a" font-weight="700">Yes</text>
+        <rect x="640" y="110" width="100" height="48" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="690" y="133" font-size="11" fill="#1e40af" text-anchor="middle" font-weight="700">Parallel</text>
+        <text x="690" y="148" font-size="11" fill="#1e40af" text-anchor="middle" font-weight="700">GC</text>
+        <line x1="380" y1="160" x2="380" y2="196" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="392" y="182" font-size="10.5" fill="#64748b">No</text>
+
+        <!-- Q3 -->
+        <rect x="250" y="196" width="260" height="60" rx="8" fill="#fff" stroke="#94a3b8"/>
+        <text x="380" y="218" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">Heap &gt; ~1Gi, OR a strict</text>
+        <text x="380" y="235" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">pause SLA (&lt; ~10ms),</text>
+        <text x="380" y="250" font-size="11.5" fill="#0f172a" text-anchor="middle" font-weight="600">latency-sensitive?</text>
+        <line x1="510" y1="226" x2="660" y2="226" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="558" y="218" font-size="10.5" fill="#16a34a" font-weight="700">Yes</text>
+        <rect x="630" y="198" width="120" height="58" rx="8" fill="#ede9fe" stroke="#8b5cf6"/>
+        <text x="690" y="221" font-size="11" fill="#5b21b6" text-anchor="middle" font-weight="700">ZGC</text>
+        <text x="690" y="237" font-size="9" fill="#6d28d9" text-anchor="middle">(Generational;</text>
+        <text x="690" y="249" font-size="9" fill="#6d28d9" text-anchor="middle">Shenandoah alt.)</text>
+        <line x1="380" y1="256" x2="380" y2="296" stroke="#64748b" marker-end="url(#gca)"/>
+        <text x="392" y="280" font-size="10.5" fill="#64748b">No</text>
+
+        <!-- Default -->
+        <rect x="280" y="296" width="200" height="56" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+        <text x="380" y="320" font-size="12.5" fill="#15803d" text-anchor="middle" font-weight="800">G1GC</text>
+        <text x="380" y="338" font-size="10" fill="#166534" text-anchor="middle">balanced default for most services</text>
+
+        <!-- footnote -->
+        <text x="40" y="392" font-size="10.5" fill="#475569">Notes:</text>
+        <text x="40" y="410" font-size="10.5" fill="#475569">• G1GC is the JVM default since Java 9 and is the right answer for the large majority of Spring Boot services.</text>
+        <text x="40" y="428" font-size="10.5" fill="#475569">• ZGC and Shenandoah keep pauses sub-millisecond largely independent of heap size, at a modest throughput + memory cost.</text>
+        <text x="40" y="446" font-size="10.5" fill="#475569">• Always confirm the choice with GC logs / metrics under a representative load test — don't switch GC on intuition alone.</text>
+      </svg>
+      <div class="caption">Figure 4 — GC selection flowchart. Work top to bottom; the first "Yes" wins. Most services fall through to G1GC.</div>
+    </div>
+
+    <h3 id="gc-tuning-starting-points">Per-GC Starting Points &amp; Tuning Flags</h3>
+    <table>
+      <thead><tr><th>GC</th><th>Enable</th><th>Useful flags</th><th>When</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>G1GC</strong> <span class="badge green">default</span></td>
+          <td>On by default (Java 9+)</td>
+          <td><code>-XX:MaxGCPauseMillis=200</code> (soft goal) · <code>-XX:+UseStringDeduplication</code> · <code>-XX:G1HeapRegionSize=16m</code> for bulky allocations</td>
+          <td>Almost everything — keep it unless you have a measured reason not to</td>
+        </tr>
+        <tr>
+          <td><strong>ZGC</strong> <span class="badge purple">latency</span></td>
+          <td><code>-XX:+UseZGC</code></td>
+          <td>On Java 21 opt into generational with <code>-XX:+ZGenerational</code>; on Java 23+ generational is the default. Size the container limit for ZGC's extra overhead.</td>
+          <td>Large heap (&gt; 1Gi) and/or strict pause SLA</td>
+        </tr>
+        <tr>
+          <td><strong>Shenandoah</strong></td>
+          <td><code>-XX:+UseShenandoahGC</code></td>
+          <td>Similar latency goals to ZGC; available in OpenJDK builds (not Oracle JDK)</td>
+          <td>Same as ZGC, on a JDK that ships Shenandoah</td>
+        </tr>
+        <tr>
+          <td><strong>ParallelGC</strong></td>
+          <td><code>-XX:+UseParallelGC</code></td>
+          <td><code>-XX:GCTimeRatio</code> · <code>-XX:MaxGCPauseMillis</code> (throughput-biased)</td>
+          <td>Finite batch jobs where total wall-clock matters and pauses are acceptable</td>
+        </tr>
+        <tr>
+          <td><strong>SerialGC</strong></td>
+          <td><code>-XX:+UseSerialGC</code></td>
+          <td>(none — minimal by design)</td>
+          <td>Tiny sidecars / single-vCPU containers with small heaps</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>How to actually decide — measure, don't guess.</strong> Turn on unified GC logging
+      (<code>-Xlog:gc*:file=/tmp/gc.log:t,uptime,level,tags</code>) or export JVM GC metrics via Micrometer/OTel
+      (<code>jvm_gc_pause_seconds</code>), run a representative load test, and look at: <em>pause duration p99</em>,
+      <em>GC frequency</em>, <em>allocation rate</em>, and <em>% time in GC</em>. Only switch away from G1GC
+      when the data shows G1 pauses are actually breaching your latency budget. See the per-pattern quick
+      reference in <a href="#gc-selection">§2 (GC Selection by Service Pattern)</a>.
+    </div>
+
+    <div class="callout info">
+      <strong>Generational ZGC matters.</strong> Original (non-generational) ZGC collected the whole heap
+      every cycle, which hurt throughput on services with high allocation rates. Generational ZGC
+      (JEP 439, Java 21) collects young and old generations separately — far more efficient for typical
+      web workloads. On Java 21 it is opt-in (<code>-XX:+ZGenerational</code>); from Java 23 it became the
+      default and the non-generational mode was deprecated, then removed in a later release. Prefer
+      generational ZGC whenever you choose ZGC.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 4 — K8S BEST PRACTICES
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="k8s-practices"><span class="sec-num">4</span> Kubernetes Best Practices</h2>
+
+    <h3 id="probes">Probes — Rationale and Tuning</h3>
+    <p>Kubernetes has three probe types. Using the wrong type for the wrong check causes either
+    premature pod kills or traffic sent to an unready pod — both are production incidents.</p>
+
+    <table>
+      <thead><tr><th>Probe</th><th>Endpoint</th><th>Rule</th><th>Wrong usage consequence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Startup</strong></td>
+          <td><code>/actuator/health/readiness</code></td>
+          <td>Covers JVM warmup + context init. Until this passes, liveness is disabled.</td>
+          <td>Without startup probe: liveness fires at 10s and kills a perfectly healthy service still loading Spring beans</td>
+        </tr>
+        <tr>
+          <td><strong>Liveness</strong></td>
+          <td><code>/actuator/health/liveness</code></td>
+          <td>Must be <em>cheap</em> — just check the JVM is alive. <strong>Never</strong> include DB or external checks.</td>
+          <td>If DB goes down and liveness checks DB → all pods killed → outage. Liveness should only kill a deadlocked JVM.</td>
+        </tr>
+        <tr>
+          <td><strong>Readiness</strong></td>
+          <td><code>/actuator/health/readiness</code></td>
+          <td>Check dependencies (DB, cache, downstream). Pod removed from endpoints if fails.</td>
+          <td>Without readiness: gateway routes to a pod whose DB connection pool is exhausted → request errors</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="dtree">
+      <h4>Probe timing by service startup characteristics</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🚀</span>Lightweight service (&lt; 5s start)</div>
+        <div class="dt-rec">Startup probe: <code>initialDelaySeconds: 5, failureThreshold: 6</code> (30s window). Typical for services with lazy initialisation enabled.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🐢</span>Typical Spring Boot (5–30s start)</div>
+        <div class="dt-rec">Startup probe: <code>initialDelaySeconds: 20, periodSeconds: 10, failureThreshold: 12</code> (140s window). <strong>This is the golden standard.</strong></div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🐘</span>Bulky service with Flyway/Liquibase migrations</div>
+        <div class="dt-rec">Startup probe: <code>initialDelaySeconds: 30, periodSeconds: 15, failureThreshold: 20</code> (330s window). DB migrations can take minutes on first deploy.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📨</span>Kafka consumer waiting for broker</div>
+        <div class="dt-rec">Extend startup window — consumer will retry broker connection. Set <code>failureThreshold: 24</code> (4min window). Also set <code>spring.kafka.consumer.max-poll-interval-ms</code> higher than startup probe window.</div>
+      </div>
+    </div>
+
+<pre><code><span class="c"># Golden standard probe config — adjust only initialDelaySeconds and failureThreshold</span>
+startupProbe:
+  httpGet: { path: /actuator/health/readiness, port: 8080 }
+  initialDelaySeconds: <span class="n">20</span>
+  periodSeconds: <span class="n">10</span>
+  failureThreshold: <span class="n">12</span>    <span class="c"># 20 + (12 × 10) = 140s total startup window</span>
+  timeoutSeconds: <span class="n">5</span>
+livenessProbe:
+  httpGet: { path: /actuator/health/liveness, port: 8080 }
+  periodSeconds: <span class="n">15</span>
+  failureThreshold: <span class="n">3</span>     <span class="c"># 45s of consecutive failure before restart</span>
+  timeoutSeconds: <span class="n">5</span>
+readinessProbe:
+  httpGet: { path: /actuator/health/readiness, port: 8080 }
+  periodSeconds: <span class="n">10</span>
+  failureThreshold: <span class="n">3</span>
+  timeoutSeconds: <span class="n">5</span></code></pre>
+
+    <h3 id="graceful-shutdown">Graceful Shutdown — The Full Chain</h3>
+    <p>Graceful shutdown involves a chain of events across Kubernetes and Spring. Getting any one step wrong
+    causes dropped requests or pods being killed mid-flight.</p>
+
+    <table>
+      <thead><tr><th>Step</th><th>Actor</th><th>What happens</th><th>Config</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Kubernetes</td><td>Marks pod <code>Terminating</code>, removes from endpoints</td><td>Automatic on delete/rollout</td></tr>
+        <tr><td>2</td><td>kube-proxy / iptables</td><td>Stops routing new requests to the pod</td><td>Takes 1–5s propagation time</td></tr>
+        <tr><td>3</td><td>preStop hook</td><td>Runs before SIGTERM — bridges the propagation gap</td><td><code>preStop: exec: sleep 5</code></td></tr>
+        <tr><td>4</td><td>Spring Boot</td><td>Receives SIGTERM, stops accepting new requests, drains in-flight</td><td><code>server.shutdown: graceful</code></td></tr>
+        <tr><td>5</td><td>Spring Boot</td><td>Waits for active requests to complete, then shuts down</td><td><code>spring.lifecycle.timeout-per-shutdown-phase: 30s</code></td></tr>
+        <tr><td>6</td><td>Kubernetes</td><td>Sends SIGKILL after grace period</td><td><code>terminationGracePeriodSeconds: 60</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>The most common misconfiguration.</strong> Setting <code>terminationGracePeriodSeconds: 30</code>
+      while Spring's shutdown timeout is also 30s leaves zero margin. If Spring takes 31s to drain,
+      Kubernetes kills the JVM mid-drain. Always: <em>terminationGracePeriodSeconds = Spring timeout + preStop delay + 15s buffer</em>.
+      With 30s Spring + 5s preStop: set <code>terminationGracePeriodSeconds: 60</code>.
+    </div>
+
+    <div class="dtree">
+      <h4>Graceful shutdown tuning by service pattern</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📨</span>Kafka consumer</div>
+        <div class="dt-rec">On SIGTERM, the consumer must complete the current poll batch and commit offsets before shutdown. Set <code>spring.kafka.listener.immediate-stop: false</code> and increase Spring shutdown timeout to 60s. Total grace period: 90s.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">⏰</span>Scheduler with long-running jobs</div>
+        <div class="dt-rec">Use <code>@Async</code> task executor with a custom shutdown hook, or use Spring's <code>TaskExecutorFactoryBean</code> with <code>waitForTasksToCompleteOnShutdown=true</code>. Grace period must cover the longest job duration.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🔀</span>Saga / state machine</div>
+        <div class="dt-rec">Persist saga state to DB before shutdown. Spring State Machine supports a <code>StateMachinePersister</code> — ensure state is written before the JVM exits. Otherwise, in-flight sagas are lost.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🌐</span>REST API (default)</div>
+        <div class="dt-rec">Standard 30s Spring + 5s preStop. Increase only if requests routinely take &gt; 10s (e.g., report generation).</div>
+      </div>
+    </div>
+
+    <h3 id="hpa-vpa">HPA, VPA, and KEDA — When to Use Each</h3>
+    <table>
+      <thead><tr><th>Controller</th><th>Scales</th><th>Metric source</th><th>Best for</th><th>Avoid when</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>HPA</strong></td>
+          <td>Replica count</td>
+          <td>CPU, memory, custom metrics</td>
+          <td>Stateless REST APIs with bursty traffic</td>
+          <td>Stateful services; services with slow startup (&gt; 60s)</td>
+        </tr>
+        <tr>
+          <td><strong>VPA</strong></td>
+          <td>CPU/memory requests on pods</td>
+          <td>Historical resource usage</td>
+          <td>Right-sizing unknown workloads; new services</td>
+          <td>Combined with HPA on CPU/memory (conflict); use <code>Off</code> mode in prod</td>
+        </tr>
+        <tr>
+          <td><strong>KEDA</strong></td>
+          <td>Replica count (0 to N)</td>
+          <td>External sources (Kafka lag, queue depth, cron)</td>
+          <td>Kafka consumers, queue workers, event-driven services</td>
+          <td>Simple CPU-based scaling (HPA is simpler)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout industry">
+      <div class="industry-label">🏭 Common Practice</div>
+      <strong>KEDA is the common choice for autoscaling Kafka consumers.</strong> Scaling on CPU is almost
+      always wrong here — a consumer can sit near 0% CPU while its lag grows into the millions (it is blocked
+      on I/O, e.g. a slow downstream DB). KEDA's Apache Kafka scaler adds and removes replicas based on
+      consumer lag — the metric that actually reflects pressure. KEDA is a CNCF project; see keda.sh (§13).
+      Remember effective parallelism is still capped by partition count.
+    </div>
+
+    <h3 id="pdb">Pod Disruption Budgets — When and Why</h3>
+<pre><code>apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: employee-pdb
+spec:
+  minAvailable: <span class="n">1</span>        <span class="c"># at least 1 pod alive during any voluntary disruption</span>
+  selector:
+    matchLabels: { app: employee }</code></pre>
+
+    <table>
+      <thead><tr><th>Service type</th><th>Recommendation</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>API service (2 replicas)</td><td><code>minAvailable: 1</code></td><td>Allows rolling update/node drain while keeping capacity</td></tr>
+        <tr><td>API service (3+ replicas)</td><td><code>maxUnavailable: 1</code></td><td>More flexible — allows draining faster</td></tr>
+        <tr><td>Kafka consumer</td><td><code>minAvailable: 1</code></td><td>Ensures at least one consumer always processing (prevents lag explosion)</td></tr>
+        <tr><td>Scheduler (1 replica)</td><td>No PDB (or <code>minAvailable: 0</code>)</td><td>Single replica — cluster upgrades must be able to drain it</td></tr>
+        <tr><td>Auth/config server</td><td><code>minAvailable: 1</code></td><td>Mission critical — never allow zero replicas</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="security-context">Security Contexts</h3>
+
+    <div class="tradeoff">
+      <div class="tradeoff-box neutral">
+        <h5>Pod-level (applies to all containers)</h5>
+        <ul>
+          <li><code>runAsNonRoot: true</code> — prevents root container escapes</li>
+          <li><code>runAsUser: 1000</code> — explicit UID, predictable file permissions</li>
+          <li><code>fsGroup: 1000</code> — shared volume ownership</li>
+          <li><code>seccompProfile: RuntimeDefault</code> — syscall filtering without custom profiles</li>
+        </ul>
+      </div>
+      <div class="tradeoff-box neutral">
+        <h5>Container-level (per container)</h5>
+        <ul>
+          <li><code>allowPrivilegeEscalation: false</code> — blocks <code>sudo</code>, setuid binaries</li>
+          <li><code>readOnlyRootFilesystem: true</code> — prevents in-container file tampering</li>
+          <li><code>capabilities: drop: [ALL]</code> — removes Linux capabilities (CAP_NET_RAW etc.)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="override-box">
+      <strong>Spring Boot and readOnlyRootFilesystem:</strong> Spring Boot writes temp files to <code>/tmp</code>
+      by default. With a read-only root filesystem, this fails. Always mount an <code>emptyDir</code> at
+      <code>/tmp</code>. Also check: Tomcat work directory (<code>server.tomcat.basedir</code>),
+      log files if written to disk, and any library that writes to the working directory.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 4 — PERFORMANCE TUNING
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="perf-tuning"><span class="sec-num">5</span> Performance Tuning by Pattern</h2>
+
+    <h3 id="virtual-threads">Virtual Threads (Java 21) — The Game Changer</h3>
+
+    <div class="tradeoff">
+      <div class="tradeoff-box pros">
+        <h5>✅ Virtual Threads — Enable if on Java 21 + Spring Boot 3.2+</h5>
+        <ul>
+          <li>Eliminates Tomcat thread pool sizing entirely</li>
+          <li>Each request gets its own lightweight thread (not OS thread)</li>
+          <li>Removes HikariCP starvation under bursty, I/O-heavy load</li>
+          <li>Fan-out services (calling 5 downstream APIs) no longer need large thread pools</li>
+          <li>Kafka consumers: each poll invocation can run on a virtual thread</li>
+        </ul>
+      </div>
+      <div class="tradeoff-box warn-box">
+        <h5>⚠️ Watch out for with Virtual Threads</h5>
+        <ul>
+          <li>Synchronized blocks pin virtual thread to OS thread — a pinning anti-pattern</li>
+          <li>JDBC drivers: some older drivers have <code>synchronized</code> in hot paths (check driver version)</li>
+          <li>ThreadLocal-heavy code may behave unexpectedly at millions of virtual threads</li>
+          <li>Debugging and profiling tools may not yet show virtual thread stacks properly</li>
+        </ul>
+      </div>
+    </div>
+
+<pre><code><span class="c"># Enable virtual threads (Java 21 + Spring Boot 3.2+)</span>
+spring.threads.virtual.enabled: <span class="k">true</span>
+
+<span class="c"># These become unnecessary with virtual threads:</span>
+<span class="c"># server.tomcat.threads.max: 200</span>
+<span class="c"># server.tomcat.threads.min-spare: 10</span>
+<span class="c"># spring.datasource.hikari.maximum-pool-size: 20  (can keep but pool behaviour changes)</span></code></pre>
+
+    <div class="callout industry">
+      <div class="industry-label">🏭 Common Practice</div>
+      On Java 21 + Spring Boot 3.2+, enabling virtual threads (<code>spring.threads.virtual.enabled=true</code>)
+      is the recommended default for new I/O-bound services — Spring Boot exposes this as a first-class flag.
+      The main thing to watch at scale is <strong>pinning</strong>: run <code>-Djdk.tracePinnedThreads=full</code>
+      in staging and fix any pinning sites (typically <code>synchronized</code> held across blocking calls)
+      before production. See the Spring Boot reference docs and JEP 444 (§13).
+    </div>
+
+    <h3 id="thread-pool-sizing">Thread Pool Sizing (Java 17 — Platform Threads)</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Default</th><th>Formula</th><th>Pattern-specific</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Tomcat max threads</td><td>200</td>
+          <td><code>vCPU × 25</code> for I/O-bound</td>
+          <td>Fan-out service: <code>vCPU × 50</code>. Bulky CPU-heavy: <code>vCPU × 4</code></td>
+        </tr>
+        <tr>
+          <td>HikariCP pool</td><td>10</td>
+          <td><code>Tomcat threads / 2</code>, never &gt; DB <code>max_connections / pod_count</code></td>
+          <td>Kafka consumer: separate pool per consumer group thread. Batch: sized for batch chunk concurrency</td>
+        </tr>
+        <tr>
+          <td>Async <code>@Scheduled</code></td><td>1 (single-threaded)</td>
+          <td>Default is dangerous for concurrent tasks</td>
+          <td>Set <code>spring.task.scheduling.pool.size: 4</code> for services with multiple schedules</td>
+        </tr>
+        <tr>
+          <td>Async <code>@Async</code></td><td>SimpleAsyncTaskExecutor (unbounded)</td>
+          <td>Always configure a bounded executor</td>
+          <td>Use <code>ThreadPoolTaskExecutor</code> with explicit <code>maxPoolSize</code> and <code>queueCapacity</code></td>
+        </tr>
+        <tr>
+          <td>Kafka consumer threads</td><td>1 per partition</td>
+          <td>Replicas × concurrency = partition count</td>
+          <td>Don't set <code>concurrency</code> higher than partition count — extra threads idle</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <strong>The scheduler trap.</strong> <code>@Scheduled</code> methods in Spring run on a
+      <em>single-threaded</em> scheduler by default. If Schedule A runs for 5 minutes and Schedule B
+      was supposed to fire at minute 2, B is silently delayed until A finishes.
+      Always configure <code>spring.task.scheduling.pool.size</code> to be ≥ the number of
+      concurrent schedules you expect to run simultaneously.
+    </div>
+
+    <h3 id="hikaricp">HikariCP — Sizing and Diagnostics</h3>
+<pre><code><span class="c"># application.yaml — HikariCP configuration with rationale</span>
+spring.datasource.hikari:
+  maximum-pool-size: <span class="n">20</span>         <span class="c"># Never exceed DB max_connections / replica count</span>
+  minimum-idle: <span class="n">5</span>               <span class="c"># Keep connections warm; reduces cold-connection latency</span>
+  connection-timeout: <span class="n">3000</span>      <span class="c"># 3s: fail fast, don't queue forever</span>
+  idle-timeout: <span class="n">600000</span>         <span class="c"># 10min: release idle connections back to DB</span>
+  max-lifetime: <span class="n">1800000</span>        <span class="c"># 30min: rotate before DB kills them (must be &lt; DB wait_timeout)</span>
+  keepalive-time: <span class="n">60000</span>        <span class="c"># Send keepalive every 60s to prevent firewall/NAT drops</span>
+  pool-name: <span class="s">"HikariPool-employee"</span> <span class="c"># Name it: easier to find in logs and metrics</span>
+  leak-detection-threshold: <span class="n">5000</span> <span class="c"># Log connections held > 5s (helps find connection leaks)</span></code></pre>
+
+    <div class="dtree">
+      <h4>HikariCP pool size decision tree</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">🌐</span>Stateless REST API</div>
+        <div class="dt-rec"><code>maximum-pool-size = Tomcat threads / 2</code>. Not all requests hit the DB. A 100-thread Tomcat service typically needs 20–30 DB connections max.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">📨</span>Kafka consumer</div>
+        <div class="dt-rec">Pool = number of listener threads × avg DB calls per message. A consumer with 4 threads each making 2 DB calls needs at least 8 connections. Add 25% headroom.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">⏰</span>Batch / scheduler</div>
+        <div class="dt-rec">Pool = Spring Batch concurrency (step chunk threads). Keep minimum-idle low (2) since the service is mostly idle. Burst during batch run is fine.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">⚠️</span>connection-timeout firing in logs?</div>
+        <div class="dt-rec">Don't just increase pool size — first check if DB max_connections is exhausted across all pods. <code>max pool × pod count ≤ DB max_connections × 0.8</code>.</div>
+      </div>
+    </div>
+
+    <h3 id="startup-opt">Startup Optimisation</h3>
+    <table>
+      <thead><tr><th>Technique</th><th>Config / Command</th><th>Startup reduction</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>Lazy initialisation</td><td><code>spring.main.lazy-initialization=true</code></td><td>30–60%</td><td>First request slower (cold bean init). Use startup probe to cover warmup.</td></tr>
+        <tr><td>Spring AOT (Build-time)</td><td>Spring Boot 3 AOT plugin</td><td>20–40%</td><td>Longer build time; some dynamic bean patterns unsupported</td></tr>
+        <tr><td>Class Data Sharing (CDS)</td><td><code>-XX:+UseAppCDS -XX:SharedArchiveFile=app.jsa</code></td><td>15–30%</td><td>Extra build step to generate archive; ~100Mi extra image layer</td></tr>
+        <tr><td>GraalVM Native Image</td><td><code>spring-boot:build-image -Pnative</code></td><td>90%+ (ms startup)</td><td>No JIT → lower peak throughput; longer build (10–30min); reflection config required</td></tr>
+        <tr><td>Narrow component scan</td><td>Explicit <code>@ComponentScan(basePackages)</code></td><td>5–15%</td><td>Must be maintained as packages change</td></tr>
+        <tr><td>Exclude unused auto-configs</td><td><code>spring.autoconfigure.exclude=...</code></td><td>5–20%</td><td>Risk of breaking functionality if wrong config excluded</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <strong>For Kafka consumers specifically:</strong> Lazy initialisation delays the consumer's first
+      <code>poll()</code> call, which means lag starts accumulating from the moment the pod starts
+      until the consumer is fully initialised. Consider <em>not</em> using lazy init for Kafka consumer
+      services — fast startup reduces lag build-up during rolling updates.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 6 — SPRING BOOT / JDK FEATURES  (NEW)
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="sb-jdk-features"><span class="sec-num">6</span> Spring Boot 3/4 &amp; JDK 17+ Cloud Features</h2>
+    <p>Several platform-relevant capabilities have landed in recent JDK and Spring Boot releases that
+    directly improve the topics in this guide — startup time, memory footprint, thread scaling, and GC.
+    This platform runs <strong>Java 21 + Spring Boot 3.5</strong>, so the table below marks what is
+    <span class="badge green">usable now</span> versus <span class="badge gray">newer</span> (worth knowing,
+    needs a JDK/Spring upgrade).</p>
+
+    <h3 id="jdk-features">JDK 17 → 25 features that matter here</h3>
+    <table>
+      <thead><tr><th>Feature</th><th>Since</th><th>What it solves in this guide</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Container-aware heap (<code>UseContainerSupport</code>)</td><td>JDK 10</td><td>Heap sized to the cgroup limit, not host RAM — basis of §2</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Application Class Data Sharing (CDS / dynamic CDS)</td><td>JDK 10 / 13</td><td>Faster startup — smaller, shorter startup CPU spike (§1)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>ZGC &amp; Shenandoah production</td><td>JDK 15</td><td>Sub-millisecond GC pauses for large heaps (§3)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Virtual Threads (JEP 444)</td><td>JDK 21</td><td>Thread-per-request scaling for I/O-bound services without pool tuning (§5)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Generational ZGC (JEP 439)</td><td>JDK 21</td><td>Efficient low-pause GC for high-allocation web workloads (§3)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>AOT Class Loading &amp; Linking — Project Leyden (JEP 483)</td><td>JDK 24</td><td>Faster startup &amp; warmup; an evolution of CDS that also caches linked state</td><td><span class="badge gray">newer</span></td></tr>
+        <tr><td>Synchronize Virtual Threads without Pinning (JEP 491)</td><td>JDK 24</td><td>Removes the main virtual-thread pinning gotcha — <code>synchronized</code> across a blocking call no longer pins the carrier thread (§5)</td><td><span class="badge gray">newer</span></td></tr>
+        <tr><td>Compact Object Headers (JEP 450)</td><td>JDK 24 (experimental); on track to production in JDK 25</td><td>Shrinks each object's header (toward 64 bits), cutting heap footprint for object-heavy apps — directly reduces memory sizing (§2)</td><td><span class="badge gray">newer</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <strong>Two upgrades worth tracking.</strong> <em>JEP 491</em> (JDK 24) eliminates the
+      <code>synchronized</code>-pinning caveat that today forces a staging scan with
+      <code>-Djdk.tracePinnedThreads=full</code> — on JDK 24+ that class of problem largely disappears.
+      <em>Compact Object Headers</em> can reduce heap usage meaningfully for services that hold many small
+      objects (caches, large collections), which translates straight into smaller container memory limits.
+    </div>
+
+    <h3 id="sb-features">Spring Boot features that matter here</h3>
+    <table>
+      <thead><tr><th>Feature</th><th>Since</th><th>What it gives you</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>GraalVM Native Image (Spring AOT engine)</td><td>Spring Boot 3.0</td><td>Sub-100ms startup &amp; low memory — strongest startup fix (§1), at the cost of peak throughput &amp; build complexity</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Virtual threads switch (<code>spring.threads.virtual.enabled</code>)</td><td>Spring Boot 3.2</td><td>One flag turns the request path onto virtual threads on Java 21 (§5)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>CRaC — Coordinated Restore at Checkpoint</td><td>Spring Boot 3.2</td><td>Restore a pre-warmed process in tens of ms — near-instant startup; needs a CRaC-enabled JDK (Azul Zulu, BellSoft Liberica)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>First-class CDS support</td><td>Spring Boot 3.3</td><td>Build-tooling support to produce &amp; use a CDS archive — the easiest startup win with no special JDK (§1)</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Spring Boot 3.5 (this platform)</td><td>May 2025</td><td>Current baseline — all of the above available</td><td><span class="badge green">usable now</span></td></tr>
+        <tr><td>Spring Boot 4.0 / Spring Framework 7</td><td>Nov 2025</td><td>Next major line (retains the Java 17 baseline). Carries forward CDS / AOT / virtual-thread support; confirm specifics against the official release notes before adopting</td><td><span class="badge gray">newer</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <strong>Practical recommendation for this platform.</strong> On Java 21 + Spring Boot 3.5 you already
+      have the high-value tools: <strong>CDS</strong> (3.3+) for startup, <strong>virtual threads</strong>
+      (3.2+) for I/O-bound scaling, and <strong>Generational ZGC</strong> for large-heap latency. Treat a
+      future move to <strong>JDK 24/25</strong> as the path to the pinning fix (JEP 491) and a smaller memory
+      footprint (Compact Object Headers); treat <strong>CRaC</strong> or <strong>Native Image</strong> as
+      targeted tools for services that specifically need near-instant startup.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 7 — SIZING METHODOLOGY
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="sizing-method"><span class="sec-num">7</span> Sizing Methodology</h2>
+
+    <div class="dtree">
+      <h4>Step-by-step sizing process for a new service</h4>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">1️⃣</span>Identify service pattern</div>
+        <div class="dt-rec">Use the pattern cards in §1. Is it a Kafka consumer? Scheduler? Bulky data service? This determines the starting point for requests and which GC to use.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">2️⃣</span>Deploy with no limit</div>
+        <div class="dt-rec">Set a conservative request (250m CPU / 512Mi memory), no limits. Deploy to staging and run a representative load test (k6). Observe actual peak usage via Prometheus.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">3️⃣</span>Collect these metrics</div>
+        <div class="dt-rec">
+          <code>container_cpu_usage_seconds_total</code> (p95/p99 under load)<br>
+          <code>container_memory_working_set_bytes</code> (peak, not average)<br>
+          <code>jvm_memory_used_bytes{area="heap"}</code> and <code>area="nonheap"</code><br>
+          <code>jvm_gc_pause_seconds_sum / count</code> (average pause)<br>
+          <code>hikaricp_connections_pending</code> (pool starvation signal)
+        </div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">4️⃣</span>Set request</div>
+        <div class="dt-rec">CPU request = p95 CPU under <em>normal</em> load + 20%. Memory request = peak working set + 20%. Both should be achievable on your node types.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">5️⃣</span>Set limit</div>
+        <div class="dt-rec">Memory limit = request (Guaranteed QoS). CPU limit: see §1.4 decision tree. For most APIs: omit. For batch/Kafka: 2–4× request.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">6️⃣</span>Run VPA in Off mode</div>
+        <div class="dt-rec">Deploy <code>updateMode: "Off"</code> VPA for 7 days in production. Review <code>kubectl describe vpa</code> recommendations. Adjust requests if VPA suggests materially different values.</div>
+      </div>
+      <div class="dt-row">
+        <div class="dt-cond"><span class="dt-icon">7️⃣</span>Set continuous alerts</div>
+        <div class="dt-rec">
+          Alert on: <code>container_oom_events_total &gt; 0</code> (memory too low)<br>
+          Alert on: <code>cpu_throttled_ratio &gt; 25%</code> (CPU limit too low or should be removed)<br>
+          Alert on: <code>hikaricp_connections_pending_total &gt; 0</code> sustained (pool too small)
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 6 — ORG STANDARDS SUMMARY
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="org-standards"><span class="sec-num">8</span> Organisation-Wide Standards Summary</h2>
+
+    <div class="ratio-grid">
+      <div class="ratio-card"><div class="rv">1:2–4</div><div class="rl">CPU request:limit</div><div class="rd">Burst allowed; omit limit for latency-sensitive services</div></div>
+      <div class="ratio-card"><div class="rv">1:1</div><div class="rl">Memory req:limit</div><div class="rd">Guaranteed QoS — maximum eviction protection</div></div>
+      <div class="ratio-card"><div class="rv">70%</div><div class="rl">MaxRAMPercentage</div><div class="rd">≤1Gi containers: 70%. ≥1Gi: 75%. Reactive/Netty: 60–65%. Batch: 80%.</div></div>
+      <div class="ratio-card"><div class="rv">70%</div><div class="rl">HPA CPU target</div><div class="rd">60% for bulky/data-heavy services</div></div>
+      <div class="ratio-card"><div class="rv">≥ 2</div><div class="rl">Minimum replicas</div><div class="rd">Survive single node failure; enable rolling updates</div></div>
+      <div class="ratio-card"><div class="rv">60s</div><div class="rl">terminationGracePeriod</div><div class="rd">30s Spring + 5s preStop + 15s buffer minimum</div></div>
+      <div class="ratio-card"><div class="rv">128Mi</div><div class="rl">MaxMetaspaceSize cap</div><div class="rd">Prevents uncapped Metaspace growth causing OOMKill</div></div>
+      <div class="ratio-card"><div class="rv">G1GC</div><div class="rl">Default GC</div><div class="rd">Switch to ZGC for heap &gt; 1Gi or sub-10ms SLA</div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 7 — GOLDEN STANDARD
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="golden-standard"><span class="sec-num">9</span> The Golden Standard Configuration</h2>
+    <p>Copy-paste baseline for a typical stateless Spring Boot REST API on Java 21.
+    The comments explain <em>why</em> each setting exists.</p>
+
+    <div class="golden-box">
+      <h3>⬡ MyOrg Golden Standard — Spring Boot 3.x on Kubernetes</h3>
+<pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service
+  namespace: microservices
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # spin up one extra pod during rollout
+      maxUnavailable: 0    # never reduce capacity — zero downtime
+  template:
+    spec:
+      terminationGracePeriodSeconds: 60   # 30s Spring + 5s preStop + 15s buffer
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels: { app: my-service }
+      containers:
+        - name: my-service
+          image: dayasahu6077/my-service:&lt;GIT-SHA&gt;  # never :latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests:
+              cpu: "250m"       # p95 CPU under normal load + 20%
+              memory: "512Mi"   # peak working set + 20%
+            limits:
+              memory: "512Mi"   # = request → Guaranteed QoS
+              # cpu limit intentionally omitted → avoids CFS throttle on latency spikes
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: >-
+                -XX:+UseContainerSupport
+                -XX:MaxRAMPercentage=70.0
+                -XX:InitialRAMPercentage=50.0
+                -XX:MaxMetaspaceSize=128m
+                -XX:ReservedCodeCacheSize=64m
+                -XX:+UseG1GC
+                -XX:MaxGCPauseMillis=200
+                -XX:+UseStringDeduplication
+                -Djava.security.egd=file:/dev/./urandom
+                -Dspring.jmx.enabled=false
+                # ↑ 70% on ≤1Gi containers; raise to 75% only on ≥1Gi limits
+            - name: SPRING_PROFILES_ACTIVE
+              value: "kubernetes"
+            - name: OTEL_SERVICE_NAME
+              value: "my-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.observability.svc.cluster.local:4318"
+          ports:
+            - containerPort: 8080
+          startupProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 12    # 20 + (12×10) = 140s startup window
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8080 }  # cheap check!
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8080 } # checks deps
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","sleep 5"]  # wait for kube-proxy to drain
+          volumeMounts:
+            - mountPath: /tmp         # Spring Boot needs /tmp (readOnlyRootFilesystem)
+              name: tmp-dir
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-service-pdb
+  namespace: microservices
+spec:
+  minAvailable: 1   # at least 1 pod alive during node drain / cluster upgrade
+  selector:
+    matchLabels: { app: my-service }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-service-hpa
+  namespace: microservices
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70   # scale before saturation
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300   # 5min cooldown — prevent thrashing
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60             # remove max 1 pod per minute</pre>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 8 — CHECKLIST
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="checklist"><span class="sec-num">10</span> Platform Team Deployment Checklist</h2>
+
+    <h4>Resource Configuration</h4>
+    <ul class="checklist">
+      <li>CPU request set and based on measured p95 load (not a guess)
+        <span class="cl-note">Reference: Prometheus query <code>rate(container_cpu_usage_seconds_total[5m])</code> at p95</span>
+      </li>
+      <li>Memory request = memory limit (Guaranteed QoS)
+        <span class="cl-note">Exception: batch jobs may use Burstable (request &lt; limit)</span>
+      </li>
+      <li>CPU limit decision documented: omitted (latency-sensitive) or set (batch/Kafka)
+        <span class="cl-note">See §1.4 decision tree</span>
+      </li>
+      <li><code>JAVA_TOOL_OPTIONS</code> includes <code>-XX:+UseContainerSupport</code>
+        <span class="cl-note">Without this, JVM may size heap against host RAM, not container limit</span>
+      </li>
+      <li><code>MaxRAMPercentage</code> set based on service pattern (60–80%)
+        <span class="cl-note">Reactive/Netty: 60–65%. Standard MVC: 70–75%. Batch: 80%</span>
+      </li>
+      <li><code>MaxMetaspaceSize</code> explicitly capped at 128m (or measured value)
+        <span class="cl-note">Uncapped Metaspace can grow unboundedly and cause unexpected OOMKill</span>
+      </li>
+    </ul>
+
+    <h4>Reliability</h4>
+    <ul class="checklist">
+      <li>startupProbe covers the full JVM + Spring context initialisation window</li>
+      <li>livenessProbe endpoint is lightweight (no DB/external calls)</li>
+      <li>readinessProbe endpoint checks dependencies (DB, downstream, cache)</li>
+      <li><code>terminationGracePeriodSeconds</code> ≥ Spring shutdown timeout + preStop + 15s</li>
+      <li><code>preStop: sleep 5</code> hook present to bridge kube-proxy propagation delay</li>
+      <li><code>server.shutdown: graceful</code> in application config</li>
+      <li><code>spring.lifecycle.timeout-per-shutdown-phase: 30s</code> in application config</li>
+      <li><code>minReplicas ≥ 2</code> in production</li>
+      <li>PodDisruptionBudget created for all services with minReplicas ≥ 2</li>
+    </ul>
+
+    <h4>Pattern-Specific Checks</h4>
+    <ul class="checklist">
+      <li><strong>Kafka consumers:</strong> replicas ≤ partition count; KEDA configured on lag metric
+        <span class="cl-note">HPA on CPU is wrong for Kafka consumers — scale on lag, not CPU</span>
+      </li>
+      <li><strong>Schedulers:</strong> ShedLock or leader election configured if replicas &gt; 1
+        <span class="cl-note">Multiple replicas without leader election = duplicate job runs</span>
+      </li>
+      <li><strong>Schedulers:</strong> <code>spring.task.scheduling.pool.size</code> ≥ concurrent schedule count</li>
+      <li><strong>@Async:</strong> custom bounded executor configured (not default SimpleAsyncTaskExecutor)
+        <span class="cl-note">Default unbounded executor can exhaust threads silently under load</span>
+      </li>
+      <li><strong>State machines / sagas:</strong> state persisted externally (DB/Redis) — not in-memory</li>
+      <li><strong>Reactive/WebFlux:</strong> <code>MaxRAMPercentage ≤ 65%</code> and <code>MaxDirectMemorySize</code> set</li>
+      <li><strong>Bulky services:</strong> ZGC selected; HPA target ≤ 60% CPU; heap &gt; 1Gi budgeted</li>
+      <li><strong>Fan-out services:</strong> per-call and total timeouts configured; or virtual threads enabled</li>
+    </ul>
+
+    <h4>Scheduling &amp; HA</h4>
+    <ul class="checklist">
+      <li>TopologySpreadConstraints or podAntiAffinity prevents all replicas on same node</li>
+      <li>HPA configured with appropriate metric for service type (CPU vs lag vs queue depth)</li>
+      <li>Rolling update: <code>maxUnavailable: 0</code> for zero-downtime deploys</li>
+    </ul>
+
+    <h4>Security</h4>
+    <ul class="checklist">
+      <li><code>runAsNonRoot: true</code> + <code>runAsUser: 1000</code> at pod level</li>
+      <li><code>allowPrivilegeEscalation: false</code> + <code>readOnlyRootFilesystem: true</code> at container level</li>
+      <li><code>capabilities: drop: [ALL]</code> at container level</li>
+      <li>emptyDir volume mounted at <code>/tmp</code> (required for readOnlyRootFilesystem)</li>
+      <li>Secrets via K8s Secrets or Vault — never in env literals or baked into image</li>
+      <li>Image tagged with Git SHA — never <code>:latest</code></li>
+    </ul>
+
+    <h4>Observability</h4>
+    <ul class="checklist">
+      <li>OTel endpoint env vars set (traces, metrics, logs to otel-collector)</li>
+      <li><code>OTEL_SERVICE_NAME</code> set and matches service name in Grafana/Tempo</li>
+      <li>Actuator health probe groups enabled in application config</li>
+      <li>JVM metrics exported (<code>management.metrics.export.prometheus.enabled=true</code>)</li>
+      <li>HikariCP metrics enabled (<code>spring.datasource.hikari.register-mbeans=true</code> or via micrometer)</li>
+      <li>Alerts on OOM events and CPU throttle ratio configured in Prometheus/Grafana</li>
+    </ul>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 9 — CASE STUDIES
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="case-studies"><span class="sec-num">11</span> Illustrative Failure Scenarios</h2>
+    <p>The scenarios below are <strong>composite illustrations</strong> of well-documented failure modes,
+    not verbatim accounts of specific named-company incidents. Each describes a realistic situation, the
+    underlying mechanism (which is real and verifiable), and the fix. Where a topic has a genuine public
+    write-up, it is cited explicitly. Treat the numbers as representative, not as measured results from a
+    particular production system.</p>
+
+    <div class="callout warn">
+      <strong>On honesty.</strong> These are teaching scenarios. The mechanisms — CFS throttling, GC pause
+      cascades, consumer rebalance storms, Metaspace exhaustion, virtual-thread pinning, duplicate schedulers —
+      are all real and reproducible. The specific figures are illustrative.
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">CFS Throttling</div>
+        <div class="cs-tags">
+          <span class="badge red">Failure mode</span>
+          <span class="badge blue">CPU limits</span>
+        </div>
+      </div>
+      <div class="cs-title">Latency spikes at low average CPU — the CPU-limit throttling trap</div>
+      <div class="cs-body">
+        <p>A latency-sensitive REST service shows P99 spikes of 150–200ms while average CPU sits around 30%,
+        nodes are not saturated, and GC pauses are under 20ms. The cause is Linux CFS (Completely Fair
+        Scheduler) bandwidth throttling — a distinct problem from the more commonly known
+        <strong>noisy neighbour</strong> issue.</p>
+        <p><strong>Noisy neighbour</strong> is when one pod consumes so many shared resources that it
+        degrades other pods on the same node. <strong>CFS throttling</strong> is different — it harms only
+        the pod that has a CPU limit set, even when the node has spare capacity. The CFS scheduler enforces
+        limits in 100ms accounting periods. A service with <code>limit: 500m</code> is allowed to run for
+        50ms per 100ms window. If a request triggers a burst to 600m for even a few milliseconds, the
+        container is <em>frozen</em> for the remainder of that 100ms window — even if the node is sitting
+        at 20% utilisation. The application experiences this as a latency spike with no corresponding
+        high CPU metric, because the CPU was throttled, not saturated.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Remove the CPU limit from latency-sensitive services and rely on
+          requests + HPA for governance, with a namespace <code>LimitRange</code> as the safety net.
+          This is a genuinely debated topic — see Omio's widely-cited post
+          <em>"Kubernetes: Make your services faster by removing CPU limits"</em> and the long-running
+          discussion in kubernetes/kubernetes issue #67577 (kernel CFS quota throttling).
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Omit CPU limits on stateless REST APIs and gateway services. Monitor <code>container_cpu_cfs_throttled_seconds_total</code> — if the throttled ratio exceeds ~25%, remove the limit.</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">GC Pause Cascade</div>
+        <div class="cs-tags">
+          <span class="badge green">Optimisation</span>
+          <span class="badge purple">ZGC</span>
+        </div>
+      </div>
+      <div class="cs-title">Large-heap G1GC pauses cascading into downstream timeouts</div>
+      <div class="cs-body">
+        <p>A service carrying a 4–8Gi heap on G1GC experiences major collection pauses in the hundreds of
+        milliseconds under peak load. Because the pod is unresponsive during a stop-the-world pause — even
+        though its readiness probe still passes between pauses — callers begin timing out, and the timeouts
+        cascade through synchronous dependency chains.</p>
+        <p>ZGC (production-ready since Java 15 via JEP 377; Generational ZGC added in Java 21 via JEP 439)
+        performs almost all of its work concurrently with application threads, keeping stop-the-world pauses
+        sub-millisecond largely independent of heap size. The trade-offs are a modest throughput cost
+        (single-digit to low-double-digit percent) and higher memory overhead.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> For large-heap, latency-sensitive services, switch from G1GC to ZGC and
+          budget extra container memory for ZGC's overhead. The sub-millisecond-pause claim is documented
+          in the OpenJDK ZGC project pages and JEP 377 / JEP 439.
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Any service with heap &gt; 1Gi processing latency-sensitive requests should evaluate ZGC, sizing the container limit to include the added GC overhead.</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">Rebalance Storm</div>
+        <div class="cs-tags">
+          <span class="badge red">Failure mode</span>
+          <span class="badge orange">Kafka consumer</span>
+        </div>
+      </div>
+      <div class="cs-title">Kafka consumer lag explosion during a rolling deploy</div>
+      <div class="cs-body">
+        <p>A consumer service runs one pod per partition. During a rolling deployment, Kubernetes drains
+        pods one at a time. Spring Boot's graceful shutdown waits for in-flight HTTP requests, but the
+        Kafka consumer has no matching grace for committing offsets — so pods are killed mid-poll. Each
+        pod removal triggers a consumer-group rebalance, and a rebalance pauses consumption for the whole
+        group while partitions are reassigned. Across a full rolling deploy this can mean many consecutive
+        rebalances, and lag grows sharply during the deployment window.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Set <code>spring.kafka.listener.immediate-stop: false</code> so a consumer
+          finishes its current batch and commits offsets before stopping, and raise
+          <code>terminationGracePeriodSeconds</code> (e.g. to 90s) to give that drain time to complete.
+          Consumer-group rebalance behaviour is documented in the Apache Kafka and Spring for Apache Kafka docs.
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Kafka consumer graceful shutdown needs explicit configuration — default Spring shutdown does not wait for offset commits. Set <code>immediate-stop: false</code> and extend the grace period.</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">Wrong Scale Metric</div>
+        <div class="cs-tags">
+          <span class="badge green">Optimisation</span>
+          <span class="badge cyan">KEDA · Kafka</span>
+        </div>
+      </div>
+      <div class="cs-title">CPU-based autoscaling that never fires for an I/O-bound consumer</div>
+      <div class="cs-body">
+        <p>A Kafka consumer fleet scales on CPU via HPA. Under a traffic surge, consumer lag grows into the
+        millions while CPU stays low — because the bottleneck is downstream database write latency, not CPU.
+        The consumers spend most of their time blocked on I/O (low CPU), so HPA never crosses its CPU
+        threshold and never adds replicas. By the time CPU finally rises, a large backlog has accumulated
+        and takes a long time to drain.</p>
+        <p>The fix is to scale on the metric that actually reflects pressure: consumer lag. KEDA's Kafka
+        scaler adds replicas based on lag thresholds, independent of CPU, and scales back down as lag clears.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Replace CPU-based HPA with KEDA's Kafka scaler driven by consumer lag.
+          See the KEDA documentation (keda.sh) for the Apache Kafka scaler. Remember that effective
+          parallelism is still capped by partition count.
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Don't scale Kafka consumers on CPU. Lag is the meaningful signal — use KEDA's Kafka scaler for event-driven consumer autoscaling.</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">Metaspace Leak</div>
+        <div class="cs-tags">
+          <span class="badge red">Failure mode</span>
+          <span class="badge orange">OOMKill</span>
+        </div>
+      </div>
+      <div class="cs-title">Silent OOMKill from uncapped Metaspace — the invisible leak</div>
+      <div class="cs-body">
+        <p>A service is OOMKilled periodically in production, yet JVM heap metrics show no growth — heap
+        usage is stable. Raising the container memory limit only delays the kill. A native-memory inspection
+        (<code>jcmd &lt;pid&gt; VM.native_memory</code>, with NativeMemoryTracking enabled) reveals Metaspace
+        steadily growing.</p>
+        <p>The classic root cause is runtime class generation: a dynamic bytecode library (CGLIB, Byte Buddy,
+        ASM — often pulled in transitively) that generates new classes without unloading them. Each generated
+        class consumes Metaspace. With no <code>MaxMetaspaceSize</code> set, Metaspace grows until the
+        container's cgroup limit is hit — while heap metrics look perfectly healthy the whole time.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Cap Metaspace explicitly (e.g. <code>-XX:MaxMetaspaceSize=128m</code>,
+          sized after profiling) so the failure surfaces quickly and unmistakably as Metaspace pressure,
+          then track down and remove the class-generating dependency. Metaspace behaviour is documented
+          in the OpenJDK / HotSpot JVM docs.
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Always cap Metaspace. A fast, obvious failure beats a slow, mysterious one. Audit transitive dependencies for runtime bytecode generation (CGLIB, Byte Buddy, ASM).</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">VT Pinning</div>
+        <div class="cs-tags">
+          <span class="badge green">Migration</span>
+          <span class="badge blue">Virtual threads</span>
+        </div>
+      </div>
+      <div class="cs-title">Java 21 virtual threads — and the pinning gotcha</div>
+      <div class="cs-body">
+        <p>A synchronous REST service that fans out to several downstream services per request is a textbook
+        candidate for virtual threads: threads spend most of their time parked on I/O. On Java 17 it needs a
+        large Tomcat thread pool and carefully tuned HikariCP sizing to avoid connection starvation under load.</p>
+        <p>Enabling <code>spring.threads.virtual.enabled=true</code> on Java 21 + Spring Boot 3.2+ lets each
+        request run on its own virtual thread, which unmounts from its carrier OS thread while parked on I/O —
+        so platform thread-pool sizing largely stops mattering and connection-pool pressure eases. The common
+        gotcha: a <code>synchronized</code> block held across a blocking call <em>pins</em> the virtual thread
+        to its carrier, negating the benefit.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Roll virtual threads out to fan-out / I/O-bound services first, and run with
+          <code>-Djdk.tracePinnedThreads=full</code> in staging to find and fix pinning sites before
+          production. Pinning is documented in JEP 444 and the Project Loom material.
+          <strong>On JDK 24+ this caveat largely goes away</strong> — JEP 491 makes <code>synchronized</code>
+          no longer pin a virtual thread to its carrier (see §6).
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: On Java 21, enable virtual threads on fan-out services first and scan for pinning with <code>-Djdk.tracePinnedThreads=full</code>. A move to JDK 24+ (JEP 491) removes the <code>synchronized</code>-pinning concern.</div>
+      </div>
+    </div>
+
+    <div class="case-study">
+      <div class="cs-header">
+        <div class="cs-company">Duplicate Scheduler</div>
+        <div class="cs-tags">
+          <span class="badge red">Failure mode</span>
+          <span class="badge orange">No leader election</span>
+        </div>
+      </div>
+      <div class="cs-title">A <code>@Scheduled</code> job that runs once per replica</div>
+      <div class="cs-body">
+        <p>A service runs a <code>@Scheduled</code> job and is deployed with multiple replicas for
+        availability. Because <code>@Scheduled</code> fires independently in every JVM, the job runs
+        once <em>per replica</em> on every tick. If the job calls a rate-limited external API or performs
+        non-idempotent writes, the duplicate executions multiply load and can cause incorrect results or
+        trip a downstream rate limiter — and the problem gets worse exactly when you scale out.</p>
+        <div class="cs-outcome">
+          <strong>Fix:</strong> Add distributed locking so only one replica runs each tick. ShedLock
+          (github.com/lukas-krecan/ShedLock) is the common Spring choice, with JDBC or Redis lock providers;
+          Quartz in clustered mode is an alternative. This lets you scale replicas freely without changing
+          job execution.
+        </div>
+        <div class="cs-lesson">📌 Lesson for this platform: Any <code>@Scheduled</code> job on a service with more than one replica needs distributed locking (ShedLock) or clustered scheduling. Never assume only one replica runs the task.</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 10 — DID YOU KNOW
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="did-you-know"><span class="sec-num">12</span> Did You Know?</h2>
+    <p>Facts that are non-obvious, frequently misunderstood, or just useful to know when working at this level.</p>
+
+    <div class="facts-grid">
+
+      <div class="fact-card">
+        <div class="fact-icon">🧊</div>
+        <div class="fact-title">The JVM doesn't return memory to the OS by default</div>
+        <div class="fact-body">After a traffic spike, GC reclaims heap objects but the JVM keeps the
+        <em>committed</em> heap memory reserved. Container metrics show high memory even after load drops.
+        Java 12+ introduced <code>-XX:+ZUncommit</code> (ZGC) and G1GC got
+        <code>-XX:G1PeriodicGCInterval=300000</code> to periodically return unused heap to the OS.
+        Without this, a pod that processed a spike 30 minutes ago looks like it is still under memory pressure.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">⏱️</div>
+        <div class="fact-title">Kubernetes endpoint propagation takes 1–5 seconds</div>
+        <div class="fact-body">When a pod is deleted, Kubernetes removes it from the Endpoints object.
+        But kube-proxy on each node must receive and apply that update via watch. This takes 1–5 seconds
+        depending on cluster size. During this window, the load balancer still sends traffic to a
+        pod that has already received SIGTERM and is shutting down. This is exactly why
+        <code>preStop: sleep 5</code> exists — to bridge that propagation gap before Spring begins shutdown.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">🔢</div>
+        <div class="fact-title">500m CPU means half a core — always</div>
+        <div class="fact-body"><code>500m</code> is 500 millicores = 0.5 vCPU regardless of whether the
+        node has 2 cores or 128 cores. It represents a proportion of time, not a physical core allocation.
+        A pod with <code>request: 500m</code> on a 4-core node is guaranteed at minimum
+        1/8th of the node's total CPU time under contention. On an idle node it can use far more —
+        right up to any configured limit.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">🪡</div>
+        <div class="fact-title">G1GC silently grows the heap to its maximum on the first major GC</div>
+        <div class="fact-body">With <code>MaxRAMPercentage=75</code> and <code>InitialRAMPercentage=50</code>
+        on a 512Mi container, the JVM starts with ~256Mi committed heap. The first major collection
+        that can't reclaim enough will expand the heap toward the 384Mi maximum — and keep it there.
+        This is expected behaviour but confuses engineers who see memory grow steadily after startup
+        and assume a leak. Monitor <code>jvm_memory_committed_bytes</code> vs <code>jvm_memory_used_bytes</code>
+        — only the used metric indicates a genuine leak.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">📊</div>
+        <div class="fact-title">OOMKilled vs OOM — they are different killers</div>
+        <div class="fact-body">Kubernetes OOMKills the container when it exceeds the cgroup memory limit
+        (the <code>limits.memory</code> value). The JVM's own OutOfMemoryError fires when the
+        <em>heap</em> is full (regardless of container limit). It is possible to have a JVM throw
+        <code>OutOfMemoryError: Java heap space</code> while the container still has 200Mi free —
+        because the heap is full but non-heap memory (Metaspace, direct buffers, thread stacks) has headroom.
+        Always tune both: JVM heap percentage AND the total container limit to accommodate all memory regions.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">🐘</div>
+        <div class="fact-title">Flyway/Liquibase runs on startup — in every replica simultaneously</div>
+        <div class="fact-body">When deploying a service with 5 replicas and a DB migration, all 5 pods
+        start simultaneously and all 5 try to run Flyway on startup. Flyway uses a distributed lock
+        (advisory lock or a <code>flyway_schema_history</code> table row) to ensure only one runs
+        the migration. The other 4 wait. This waiting period can push startup beyond your startup probe
+        window if migrations are slow. Always set a generous startup probe <code>failureThreshold</code>
+        for services with Flyway — especially for the first deploy with a schema change.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">🔄</div>
+        <div class="fact-title">Spring's @Transactional does not automatically retry on deadlock</div>
+        <div class="fact-body">Kafka consumers processing messages that write to a database under
+        concurrent load frequently hit deadlocks. <code>@Transactional</code> will propagate the
+        <code>CannotAcquireLockException</code> up to the Kafka listener — which retries the entire
+        message. Without a retry limit, this can cause a message to be retried indefinitely, blocking
+        the partition. Always configure a <code>DefaultErrorHandler</code> (Spring Kafka 2.8+; it replaced
+        the now-removed <code>SeekToCurrentErrorHandler</code>) with a backoff and a
+        <code>DeadLetterPublishingRecoverer</code> for production Kafka consumers.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">🌍</div>
+        <div class="fact-title">Virtual threads bring a decades-old idea to the JVM mainstream</div>
+        <div class="fact-body">Lightweight user-mode threads ("M:N" scheduling) long predate Java's virtual
+        threads — Erlang processes, early Java "green threads", and Go's goroutines (2009) all use the same
+        core idea of many logical threads multiplexed over few OS threads. Project Loom — the effort to bring
+        this back to the JVM — began around 2017, previewed in Java 19 (JEP 425, 2022), and reached GA in
+        Java 21 (JEP 444, 2023). The significance: for I/O-bound services the OS-thread-per-request model
+        was the main scaling ceiling, and virtual threads remove it without rewriting code in a reactive style.</div>
+      </div>
+
+      <div class="fact-card">
+        <div class="fact-icon">💡</div>
+        <div class="fact-title">The Kubernetes scheduler never looks at actual usage — only requests</div>
+        <div class="fact-body">When placing a pod, the scheduler sums up all existing pods'
+        <em>requests</em> on a node and checks if the new pod's request fits in the remaining
+        capacity. It does not look at current CPU or memory utilisation at all. A node at
+        5% actual CPU usage can still reject a new pod if existing pods' requests sum to 95%
+        of node capacity. This is why "the node has plenty of CPU but pods won't schedule"
+        is such a common confusion — and why right-sizing requests (not just limits) matters.</div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 11 — REFERENCES
+    ═══════════════════════════════════════════════════════════════ -->
+    <h2 id="references"><span class="sec-num">13</span> Reference Standards</h2>
+    <table>
+      <thead><tr><th>Source</th><th>Topic</th><th>Key reference</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Kubernetes</strong></td><td>Resource management, QoS, eviction</td><td>Resource Requests and Limits; LimitRange; QoS classes; PodDisruptionBudget; TopologySpreadConstraints</td></tr>
+        <tr><td><strong>Spring Boot</strong></td><td>Graceful shutdown, probes, virtual threads</td><td><code>server.shutdown: graceful</code>; Actuator health groups; <code>spring.threads.virtual.enabled</code>; Spring Kafka listener lifecycle</td></tr>
+        <tr><td><strong>OpenJDK / JEP</strong></td><td>Container awareness, GC, Virtual Threads</td><td>UseContainerSupport: JDK-8196340 (Java 10, no JEP — note JEP 400 is "UTF-8 by Default", unrelated); ZGC production: JEP 377 (Java 15); Generational ZGC: JEP 439 (Java 21); Shenandoah production: JEP 379 (Java 15); Virtual Threads preview: JEP 425 (Java 19); Virtual Threads GA: JEP 444 (Java 21)</td></tr>
+        <tr><td><strong>OpenJDK / JEP (newer)</strong></td><td>Startup, pinning, memory footprint</td><td>AOT Class Loading &amp; Linking (Project Leyden): JEP 483 (Java 24); Synchronize Virtual Threads without Pinning: JEP 491 (Java 24); Compact Object Headers (Project Lilliput): JEP 450 (experimental, Java 24)</td></tr>
+        <tr><td><strong>CRaC</strong></td><td>Checkpoint/restore for fast startup</td><td>openjdk.org/projects/crac; Spring Boot CRaC reference docs; CRaC-enabled JDKs (Azul Zulu, BellSoft Liberica)</td></tr>
+        <tr><td><strong>Spring Boot startup</strong></td><td>CDS, AOT, Native Image</td><td>Spring Boot reference: "Class Data Sharing" (3.3+), "GraalVM Native Image", "Efficient Deployments"</td></tr>
+        <tr><td><strong>Kubernetes (newer)</strong></td><td>In-place pod resize, startup boost</td><td>In-Place Update of Pod Resources: KEP-1287 (beta, Kubernetes 1.33); GKE Autopilot "workload startup CPU boost" docs</td></tr>
+        <tr><td><strong>GKE</strong></td><td>Resource requests, VPA, cluster autoscaler</td><td>GKE docs: "Configure resource requests and limits"; Vertical Pod Autoscaler guide; GKE best practices for Java</td></tr>
+        <tr><td><strong>AWS EKS</strong></td><td>Right-sizing, reliability, Java on EKS</td><td>EKS Best Practices Guide: Reliability chapter; "Running Java Workloads on EKS" (AWS blog)</td></tr>
+        <tr><td><strong>Azure AKS</strong></td><td>Java microservices, Spring on AKS</td><td>AKS best practices: resource management; "Deploy Spring Boot to AKS" (Microsoft Learn)</td></tr>
+        <tr><td><strong>CNCF</strong></td><td>Java in cloud-native environments</td><td>CNCF Cloud Native Java whitepaper; TAG-Runtime: Java container sizing; Wasm and native compilation track</td></tr>
+        <tr><td><strong>Apache Kafka</strong></td><td>Consumer groups, rebalancing, offset commits</td><td>kafka.apache.org/documentation — consumer group protocol &amp; rebalance behaviour</td></tr>
+        <tr><td><strong>KEDA Project</strong></td><td>Event-driven autoscaling, Kafka scaler</td><td>keda.sh/docs — Apache Kafka scaler, lag-based scaling</td></tr>
+        <tr><td><strong>HikariCP</strong></td><td>Connection pool sizing</td><td>github.com/brettwooldridge/HikariCP wiki — "About Pool Sizing"</td></tr>
+        <tr><td><strong>ShedLock</strong></td><td>Distributed scheduler locking</td><td>github.com/lukas-krecan/ShedLock — JDBC and Redis lock providers</td></tr>
+        <tr><td><strong>Project Loom</strong></td><td>Virtual threads, structured concurrency</td><td>openjdk.org/projects/loom; JEP 444 (Virtual Threads)</td></tr>
+        <tr><td><strong>CPU limits debate</strong></td><td>CFS throttling, removing CPU limits</td><td>Omio blog: "Make your services faster by removing CPU limits"; kubernetes/kubernetes issue #67577 (CFS quota throttling)</td></tr>
+      </tbody>
+    </table>
+    <p class="text-muted" style="font-size:.82rem;margin-top:.75rem;">
+      Official-documentation rows above (Kubernetes, Spring, OpenJDK/JEP, GKE, EKS, AKS, CNCF) and the
+      named open-source projects are verifiable primary sources. The scenarios in Section 9 are illustrative
+      composites of the failure modes these sources describe, not citations of specific company incidents.
+    </p>
+
+    <div class="page-nav">
+      <a href="patterns.html"><div class="dir">← Previous</div><div class="ttl">Design Patterns</div></a>
+      <a class="next" href="deployment.html"><div class="dir">Next →</div><div class="ttl">Deployment &amp; Blue-Green</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>
