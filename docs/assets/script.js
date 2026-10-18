@@ -9,6 +9,7 @@
     { title: "Introduction", items: [
       { href: "index.html",         icon: "⌂", label: "Overview & Architecture",  sub: "Platform overview, diagram" },
       { href: "setup.html",         icon: "⚙", label: "Setup Guide",              sub: "Windows, tooling, first run" },
+      { href: "setup-fixes.html",   icon: "🩹", label: "Setup Fixes Log",          sub: "Known issues, fixes, files" },
       { href: "structure.html",     icon: "🗂", label: "Repository Map",           sub: "Folders, files, modules" }
     ]},
     { title: "Core Concepts", items: [

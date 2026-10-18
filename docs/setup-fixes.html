@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setup Fixes Log — MyOrg Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+  <main class="content"><div class="container">
+
+    <div class="page-head">
+      <div class="eyebrow">Introduction</div>
+      <h1>Setup Fixes Log</h1>
+      <p class="lead">What broke when the <a href="setup.html">Setup Guide</a> was followed on a fresh
+        cluster, what was changed to fix it, and which files were touched. Check here first if a setup
+        step fails for you.</p>
+    </div>
+
+    <div class="callout info">
+      <div><strong>Test run — 2026-10-18.</strong> Windows 11 · Docker Desktop (Kubernetes enabled, kubeadm
+      mode, v1.36.1) · empty cluster · images already built locally. Steps run in order:
+      <code>make bootstrap</code> → <code>make obs-up</code> → <code>make deploy ingress</code> →
+      <code>make health</code> → smoke tests.</div>
+    </div>
+
+    <h2 id="summary">Summary</h2>
+    <table>
+      <thead><tr><th>#</th><th>Problem</th><th>Where it bites</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>bootstrap.ps1</code> used bash <code>&lt;&lt;EOF</code> heredocs</td><td>Setup — Bootstrap</td><td>✅ Fixed</td></tr>
+        <tr><td>2</td><td>Argo Rollouts CRDs too large for client-side apply</td><td>Setup — Bootstrap</td><td>✅ Fixed</td></tr>
+        <tr><td>3</td><td><code>bootstrap.ps1</code> reported success even when every kubectl call failed</td><td>Setup — Bootstrap</td><td>✅ Fixed</td></tr>
+        <tr><td>4</td><td>Duplicate <code>smoke-test</code> AnalysisTemplate breaks <code>kubectl apply -k .</code></td><td><code>make deploy</code></td><td>✅ Fixed</td></tr>
+        <tr><td>5</td><td><code>https://dashboard.myorg.com</code> returns 404 — ingress never applied</td><td>Setup — Dashboard</td><td>✅ Fixed</td></tr>
+        <tr><td>6</td><td><code>make health</code> flags every healthy pod as not ready</td><td><code>make health</code></td><td>✅ Fixed</td></tr>
+        <tr><td>7</td><td>Antivirus (Norton) intercepts kubectl TLS → x509 errors</td><td>Any kubectl command</td><td>⚠️ Environment</td></tr>
+        <tr><td>8</td><td>kubectl errors right after Docker Desktop starts</td><td>First commands</td><td>⚠️ Environment</td></tr>
+        <tr><td>9</td><td><code>make up</code> always pushes — needs your own Docker Hub account</td><td><code>make up</code></td><td>❌ Open</td></tr>
+        <tr><td>10</td><td>Local-only path still runs Docker Hub images (<code>imagePullPolicy: Always</code>)</td><td>Setup — Path B</td><td>❌ Open</td></tr>
+        <tr><td>11</td><td>Static dashboard token snippet is bash-only</td><td>Setup — Dashboard</td><td>❌ Open (doc)</td></tr>
+        <tr><td>12</td><td><code>curl</code> in PowerShell 5.1 is <code>Invoke-WebRequest</code></td><td>Setup — Smoke tests</td><td>❌ Open (doc)</td></tr>
+        <tr><td>13</td><td><code>kubectl-argo-rollouts</code> install steps too vague</td><td>Setup — Prerequisites</td><td>❌ Open (doc)</td></tr>
+        <tr><td>14</td><td>API gateway restarts once on first start</td><td><code>make status</code></td><td>ℹ️ Harmless</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="files">Files Changed</h2>
+    <table>
+      <thead><tr><th>File</th><th>Change</th><th>Fixes</th></tr></thead>
+      <tbody>
+        <tr><td><code>scripts/bootstrap.ps1</code></td><td>Fail-fast <code>kubectl</code> wrapper; heredocs → PowerShell here-strings; redundant <code>kubectl patch</code> removed; Argo install uses <code>--server-side</code>; applies the dashboard ingress</td><td>#1, #2, #3, #5</td></tr>
+        <tr><td><code>kustomization.yaml</code></td><td>Removed duplicate <code>department/k8/analysis-template.yaml</code> entry</td><td>#4</td></tr>
+        <tr><td><code>scripts/health-check.ps1</code></td><td>Ready/total counts wrapped in <code>@()</code></td><td>#6</td></tr>
+        <tr><td><code>docs/setup-fixes.html</code></td><td>This page (new)</td><td>—</td></tr>
+        <tr><td><code>docs/assets/script.js</code></td><td>Nav link to this page</td><td>—</td></tr>
+        <tr><td><code>docs/setup.html</code>, <code>docs/structure.html</code></td><td>Callout + previous/next links</td><td>—</td></tr>
+        <tr><td><code>docs/README.md</code></td><td>Page listed in the pages table</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="fixed">Fixed in the Repo</h2>
+
+    <h3>1. <code>bootstrap.ps1</code> — bash heredocs in a PowerShell script</h3>
+    <p><strong>Symptom:</strong> the dashboard step fails. <code>kubectl apply -f - &lt;&lt;EOF</code> is bash
+       syntax; PowerShell has no heredoc.</p>
+    <p><strong>Fix:</strong> pipe a PowerShell here-string into kubectl. The <code>kubectl patch</code> to
+       NodePort was dropped — the Service manifest below already sets <code>type: NodePort</code>.</p>
+<pre><code><span class="c"># Before (bash only)</span>
+kubectl apply -f - &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+...
+EOF
+
+<span class="c"># After (PowerShell)</span>
+@"
+apiVersion: v1
+kind: Service
+...
+"@ | kubectl apply -f -</code></pre>
+
+    <h3>2. Argo Rollouts CRDs rejected — "metadata.annotations: Too long"</h3>
+    <p><strong>Symptom:</strong></p>
+<pre><code>CustomResourceDefinition "rollouts.argoproj.io" is invalid:
+  metadata.annotations: Too long: may not be more than 262144 bytes</code></pre>
+    <p><strong>Cause:</strong> client-side <code>kubectl apply</code> stores the whole object in the
+       <code>last-applied-configuration</code> annotation. The <code>rollouts</code> and
+       <code>analysisruns</code> CRDs exceed the 256&nbsp;KB annotation limit. The controller still installs,
+       so bootstrap <em>looks</em> fine — but <code>make deploy</code> later fails with
+       <code>no matches for kind "Rollout"</code>.</p>
+    <p><strong>Fix:</strong> server-side apply (no annotation stored):</p>
+<pre><code>kubectl apply --server-side -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml</code></pre>
+    <p>Cluster bootstrapped with the old script? Re-run the command with <code>--force-conflicts</code> and
+       check all five CRDs exist:</p>
+<pre><code>kubectl get crd | findstr argoproj   <span class="c"># expect 5: analysisruns, analysistemplates, clusteranalysistemplates, experiments, rollouts</span></code></pre>
+
+    <h3>3. <code>bootstrap.ps1</code> reported success when everything failed</h3>
+    <p><strong>Symptom:</strong> every <code>kubectl</code> call errored, yet the script printed
+       "NGINX Ingress ready", "Argo Rollouts ready", "Bootstrap complete" and exited <code>0</code>.</p>
+    <p><strong>Cause:</strong> <code>$ErrorActionPreference = "Stop"</code> does not apply to native
+       executables in Windows PowerShell 5.1 — a failing <code>kubectl.exe</code> just sets
+       <code>$LASTEXITCODE</code>.</p>
+    <p><strong>Fix:</strong> a wrapper at the top of the script shadows <code>kubectl</code>, so every call
+       (including piped ones) stops the script on failure:</p>
+<pre><code>function kubectl {
+    $input | &amp; kubectl.exe @args
+    if ($LASTEXITCODE -ne 0) { throw "kubectl $args failed (exit code $LASTEXITCODE)" }
+}</code></pre>
+    <p class="text-muted">Verified both ways: against an unreachable cluster it stops at step 1 with exit
+       code 1; against the real cluster it completes all three steps with exit code 0.</p>
+
+    <h3>4. <code>make deploy</code> fails — duplicate AnalysisTemplate</h3>
+    <p><strong>Symptom:</strong></p>
+<pre><code>accumulating resources: may not add resource with an already registered id:
+  AnalysisTemplate.v1alpha1.argoproj.io/smoke-test</code></pre>
+    <p><strong>Cause:</strong> <code>employee/k8/analysis-template.yaml</code> and
+       <code>department/k8/analysis-template.yaml</code> both define <code>smoke-test</code> in the same
+       namespace. Kustomize refuses duplicates, so <strong>nothing</strong> in the microservices namespace
+       gets applied.</p>
+    <p><strong>Fix:</strong> the files are identical apart from one comment, and the template is
+       parameterized by <code>preview-url</code>, so both Rollouts share one copy:</p>
+<pre><code>  - department/k8/service-preview.yaml
+<span class="c">  # department reuses the shared smoke-test AnalysisTemplate from employee/k8 (same name, parameterized by preview-url).</span></code></pre>
+    <div class="callout tip">
+      <div><strong>Long-term option.</strong> Move the template to a shared location (e.g.
+      <code>shared/k8/analysis-template.yaml</code>) or make it a <code>ClusterAnalysisTemplate</code>, and
+      delete the per-service copies so they can't drift apart.</div>
+    </div>
+
+    <h3>5. <code>https://dashboard.myorg.com</code> returns 404</h3>
+    <p><strong>Cause:</strong> <code>observability/k8/dashboard-ingress.yaml</code> exists but no step applied
+       it — it isn't in any kustomization, the Makefile or the bootstrap script.</p>
+    <p><strong>Fix:</strong> bootstrap applies it right after installing the dashboard:</p>
+<pre><code>kubectl apply -f (Join-Path $PSScriptRoot "..\observability\k8\dashboard-ingress.yaml")</code></pre>
+    <p class="text-muted">The manifest's <code>ssl-passthrough</code> annotation has no effect — ingress-nginx
+       is installed without <code>--enable-ssl-passthrough</code>. NGINX serves its default "Kubernetes
+       Ingress Controller Fake Certificate" and re-encrypts to the dashboard
+       (<code>backend-protocol: HTTPS</code>). It works; the browser certificate warning is expected.</p>
+
+    <h3>6. <code>make health</code> — every pod flagged as not ready</h3>
+    <p><strong>Symptom:</strong> pods are <code>1/1 Running</code>, but the check prints
+       <code>[WARN] employee-...  (/1)  phase=Running</code> for each one and exits 1.</p>
+    <p><strong>Cause:</strong> in PowerShell 5.1, when <code>Where-Object</code> matches exactly one item it
+       returns a single object, and <code>.Count</code> on a single <code>PSCustomObject</code> is empty. Every
+       pod here has one container, so the ready count was always blank.</p>
+    <p><strong>Fix:</strong> force arrays with <code>@()</code>:</p>
+<pre><code>$ready = @($p.status.containerStatuses | Where-Object { $_.ready }).Count
+$total = @($p.status.containerStatuses).Count</code></pre>
+
+    <h2 id="environment">Environment Issues (no repo change)</h2>
+
+    <h3>7. <code>x509: certificate signed by unknown authority</code> — antivirus TLS interception</h3>
+    <p><strong>Symptom:</strong> kubectl fails — sometimes every call, sometimes randomly:</p>
+<pre><code>Unable to connect to the server: tls: failed to verify certificate:
+  x509: certificate signed by unknown authority</code></pre>
+    <p><strong>Cause:</strong> Norton's <em>Web/Mail Shield</em> intercepts HTTPS to the Kubernetes API
+       (<code>kubernetes.docker.internal:6443</code>, and at times <code>127.0.0.1:6443</code>) and re-signs it
+       with its own CA. Other antivirus products with "HTTPS scanning" (Avast, AVG, Kaspersky, ESET,
+       Bitdefender) can do the same. Your kubeconfig and Docker Desktop's certificates are fine.</p>
+    <p><strong>Diagnose</strong> (Git Bash) — check who issued the certificate:</p>
+<pre><code>echo | openssl s_client -connect kubernetes.docker.internal:6443 2&gt;/dev/null | openssl x509 -noout -issuer
+<span class="c"># good: issuer=CN=kubernetes</span>
+<span class="c"># bad:  issuer=... O=Norton Web/Mail Shield ...</span></code></pre>
+    <p><strong>Fix:</strong></p>
+    <div class="steps">
+      <div class="step"><h4>Turn off HTTPS scanning (reliable)</h4>
+        <p>Norton → Settings → Antivirus → Web/Mail Shield → disable <em>HTTPS scanning / Scan secure
+           connections</em>. The shield itself can stay on. Restart Docker Desktop.</p></div>
+      <div class="step"><h4>Exceptions (not reliable on their own)</h4>
+        <p>Same screen → Exceptions: <code>kubernetes.docker.internal</code>, <code>127.0.0.1</code>,
+           <code>localhost</code>, <code>*.myorg.com</code>. In testing, interception kept coming back with
+           exceptions only.</p></div>
+    </div>
+    <div class="callout danger">
+      <div><strong>Don't use <code>insecure-skip-tls-verify</code>.</strong> It turns off certificate checking for
+      the cluster entirely.</div>
+    </div>
+
+    <h3>8. kubectl fails for the first minute or two after Docker Desktop starts</h3>
+    <p><strong>Cause / Fix:</strong> the API server is still starting even when the whale icon is green.
+       Wait until this succeeds before running bootstrap or <code>make</code>:</p>
+<pre><code>kubectl get nodes   <span class="c"># expect: docker-desktop   Ready</span></code></pre>
+    <div class="callout warn">
+      <div><strong>Git Bash gotcha while diagnosing.</strong> <code>kubectl get --raw /version</code> returns
+      <code>NotFound</code> in Git Bash because MSYS rewrites <code>/version</code> into a Windows path. Test with
+      <code>kubectl get nodes</code> instead.</div>
+    </div>
+
+    <h2 id="open">Still Open</h2>
+
+    <h3>9. <code>make up</code> always pushes</h3>
+    <p><code>make up</code> = <code>obs-up build push deploy ingress</code>. <code>REGISTRY</code> lets you target
+       your own Docker Hub account (<code>make up REGISTRY=you</code>, after <code>docker login</code>), but
+       there's no target that skips the push — without a Docker Hub account, <code>make up</code> stops with
+       <code>denied</code>.</p>
+    <p><strong>Workaround:</strong> run the steps without push:</p>
+<pre><code>make bootstrap
+make obs-up
+make deploy ingress   <span class="c"># uses the public dayasahu6077/* images</span></code></pre>
+    <p><strong>Planned fix:</strong> a <code>make local-up</code> target (<code>obs-up build deploy ingress</code>)
+       paired with #10.</p>
+
+    <h3>10. Local-only path still runs Docker Hub images</h3>
+    <p>With <code>imagePullPolicy: Always</code> the kubelet pulls <code>$(REGISTRY)/*:latest</code> from Docker Hub
+       and ignores your local build. It works only because the default images are public — local code
+       changes never reach the cluster. Files to change for local iteration
+       (<code>Always</code> → <code>IfNotPresent</code>):</p>
+<pre><code>configserver/k8/deployment.yaml
+auth-service/k8/deployment.yaml
+ms-api-gateway/k8/deployment.yaml
+employee/k8/rollout.yaml
+department/k8/rollout.yaml</code></pre>
+    <p><strong>Planned fix:</strong> a kustomize patch in a local overlay rather than editing the base manifests.</p>
+
+    <h3>11. Static dashboard token snippet is bash-only</h3>
+    <p>The Setup Guide's long-lived token uses <code>&lt;&lt;EOF</code> and <code>base64 -d</code>. In PowerShell:</p>
+<pre><code>@"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user-token
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/service-account.name: admin-user
+type: kubernetes.io/service-account-token
+"@ | kubectl apply -f -
+
+$t = kubectl -n kubernetes-dashboard get secret admin-user-token -o jsonpath="{.data.token}"
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($t))</code></pre>
+
+    <h3>12. Smoke-test <code>curl</code> in PowerShell 5.1</h3>
+    <p>In Windows PowerShell 5.1, <code>curl</code> is an alias for <code>Invoke-WebRequest</code>, so
+       <code>-X</code>/<code>-H</code>/<code>-d</code> fail. Use <code>curl.exe</code>, or run the commands in Git Bash:</p>
+<pre><code>curl.exe -X POST http://api.myorg.com/auth/token -H "Content-Type: application/json" -d "{\"userId\":\"12345\"}"</code></pre>
+
+    <h3>13. Installing <code>kubectl-argo-rollouts</code></h3>
+    <div class="steps">
+      <div class="step"><h4>Download</h4>
+        <p>From <a href="https://github.com/argoproj/argo-rollouts/releases">github.com/argoproj/argo-rollouts/releases</a>,
+           download <code>kubectl-argo-rollouts-windows-amd64</code>.</p></div>
+      <div class="step"><h4>Rename</h4>
+        <p>Rename it to <code>kubectl-argo-rollouts.exe</code> — kubectl finds plugins by this exact name.</p></div>
+      <div class="step"><h4>Put it on PATH</h4>
+        <p>Move it into a folder on your PATH (e.g. next to <code>kubectl.exe</code>, or create
+           <code>C:\tools</code> and add it to PATH). Reopen the terminal.</p></div>
+      <div class="step"><h4>Verify</h4>
+<pre><code>kubectl argo rollouts version</code></pre></div>
+    </div>
+
+    <h3>14. API gateway shows 1 restart</h3>
+    <p>On a fresh deploy the gateway can start before configserver is ready and restart once. It recovers
+       on its own; <code>RESTARTS 1</code> in <code>make status</code> is not a failure.</p>
+
+    <h2 id="verified">Verified Working After Fixes</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><code>make bootstrap</code> — ingress-nginx, Argo Rollouts (5 CRDs), Dashboard + ingress</td><td>✅ exit 0</td></tr>
+        <tr><td><code>make obs-up</code> — Loki, Tempo, Prometheus, Grafana, Alloy</td><td>✅ all Running</td></tr>
+        <tr><td><code>make deploy ingress</code> — configserver, apigateway, auth-service, employee, department</td><td>✅ Running · Rollouts Healthy</td></tr>
+        <tr><td><code>make health</code></td><td>✅ All health checks passed</td></tr>
+        <tr><td><code>http://grafana.myorg.com</code> · <code>http://localhost:30300</code></td><td>✅ 200</td></tr>
+        <tr><td><code>http://prometheus.myorg.com</code> · <code>http://localhost:30900</code></td><td>✅ 302 → UI</td></tr>
+        <tr><td><code>http://api.myorg.com/actuator/health</code></td><td>✅ UP (config loaded from configserver)</td></tr>
+        <tr><td><code>https://localhost:30443</code> · <code>https://dashboard.myorg.com</code></td><td>✅ 200 (self-signed cert warning expected)</td></tr>
+        <tr><td>Smoke tests: <code>POST /auth/token</code>, <code>/employee/api/employees</code>, <code>/employee/api/departments</code></td><td>✅ token issued · 200 · 200</td></tr>
+      </tbody>
+    </table>
+
+    <div class="page-nav">
+      <a href="setup.html"><div class="dir">← Previous</div><div class="ttl">Setup Guide</div></a>
+      <a class="next" href="structure.html"><div class="dir">Next →</div><div class="ttl">Repository Map</div></a>
+    </div>
+
+  </div></main>
+</div>
+<script src="assets/script.js"></script>
+</body>
+</html>

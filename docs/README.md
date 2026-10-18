@@ -8,6 +8,7 @@ No build step, no dependencies, no internet required — pure HTML/CSS/JS.
 |---|---|
 | `index.html` | Overview + end-to-end architecture diagram |
 | `setup.html` | Windows setup guide, prerequisites, dashboard token |
+| `setup-fixes.html` | Fixes from a fresh-cluster test run, files changed, open issues |
 | `cross-cutting.html` | Cross-cutting concerns & solutions |
 | `patterns.html` | Design patterns, rationale, alternatives |
 | `gateway.html` | API Gateway pattern + JWT flow |
