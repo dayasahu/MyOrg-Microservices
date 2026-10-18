@@ -28,7 +28,7 @@ resources:
   - department/k8/rollout.yaml
   - department/k8/service.yaml
   - department/k8/service-preview.yaml
-  - department/k8/analysis-template.yaml
+  # department reuses the shared smoke-test AnalysisTemplate from employee/k8 (same name, parameterized by preview-url).
   - ms-api-gateway/k8/deployment.yaml
   - ms-api-gateway/k8/service.yaml
 

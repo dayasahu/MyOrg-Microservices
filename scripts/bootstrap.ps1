@@ -9,6 +9,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# "Stop" doesn't catch native-command failures in Windows PowerShell 5.1, so a failed
+# kubectl would scroll past and the script would still report success. Fail fast instead.
+function kubectl {
+    $input | & kubectl.exe @args
+    if ($LASTEXITCODE -ne 0) { throw "kubectl $args failed (exit code $LASTEXITCODE)" }
+}
+
 function Wait-Rollout($namespace, $deployment, $timeout = "120s") {
     Write-Host "  Waiting for $deployment..."
     kubectl rollout status deployment/$deployment -n $namespace --timeout=$timeout
@@ -30,7 +37,8 @@ if (-not $SkipIngress) {
 if (-not $SkipArgo) {
     Write-Host "`n[2/3] Installing Argo Rollouts..."
     kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
-    kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+    # --server-side: the Rollout/AnalysisRun CRDs exceed the 256KB last-applied annotation limit of client-side apply
+    kubectl apply --server-side -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
     Wait-Rollout "argo-rollouts" "argo-rollouts"
     Write-Host "  Argo Rollouts ready"
 }
@@ -41,11 +49,8 @@ if (-not $SkipDashboard) {
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
 
     # Expose as NodePort on 30443
-    kubectl patch svc kubernetes-dashboard -n kubernetes-dashboard `
-        --type=json `
-        -p='[{"op":"replace","path":"/spec/type","value":"NodePort"}]' 2>$null
-
-    kubectl apply -f - <<EOF
+    # PowerShell here-strings piped to kubectl (bash <<EOF heredocs don't parse in PowerShell)
+    @"
 apiVersion: v1
 kind: Service
 metadata:
@@ -61,10 +66,13 @@ spec:
       nodePort: 30443
   selector:
     k8s-app: kubernetes-dashboard
-EOF
+"@ | kubectl apply -f -
+
+    # Expose via nginx ingress at https://dashboard.myorg.com
+    kubectl apply -f (Join-Path $PSScriptRoot "..\observability\k8\dashboard-ingress.yaml")
 
     # Create admin service account
-    kubectl apply -f - <<EOF
+    @"
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -83,7 +91,7 @@ subjects:
   - kind: ServiceAccount
     name: admin-user
     namespace: kubernetes-dashboard
-EOF
+"@ | kubectl apply -f -
     Write-Host "  Dashboard ready at https://localhost:30443"
     Write-Host "  Get token: kubectl -n kubernetes-dashboard create token admin-user"
 }

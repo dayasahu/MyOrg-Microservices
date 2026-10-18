@@ -17,8 +17,9 @@ Section "Pod readiness"
 $pods = kubectl get pods -n $Namespace -o json | ConvertFrom-Json
 foreach ($p in $pods.items) {
     $name  = $p.metadata.name
-    $ready = ($p.status.containerStatuses | Where-Object { $_.ready }).Count
-    $total = $p.status.containerStatuses.Count
+    # @() forces an array: in PowerShell 5.1 a single PSCustomObject has no .Count
+    $ready = @($p.status.containerStatuses | Where-Object { $_.ready }).Count
+    $total = @($p.status.containerStatuses).Count
     $phase = $p.status.phase
     if ($phase -eq "Running" -and $ready -eq $total) {
         Write-Host ("  [OK]   {0}  ({1}/{2})" -f $name, $ready, $total) -ForegroundColor Green
